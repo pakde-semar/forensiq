@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from .database import engine, get_db
 from . import models
 from .templates_env import templates
-from .routers import agency, cases, evidence, reports, integrations, lookup, pipeline, coc, export, yara, hashverify, timeclock, notes, timeline
+from .routers import agency, cases, evidence, reports, integrations, lookup, pipeline, coc, export, yara, hashverify, timeclock, notes, timeline, preview
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -33,6 +33,7 @@ app.include_router(hashverify.router)
 app.include_router(timeclock.router)
 app.include_router(notes.router)
 app.include_router(timeline.router)
+app.include_router(preview.router)
 
 
 @app.get("/")

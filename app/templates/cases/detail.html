@@ -217,6 +217,11 @@
               </td>
               <td>
                 <button class="btn btn-outline-secondary d-inline" style="font-size:.75rem;padding:1px 6px;"
+                        onclick="evPreview({{ case.id }}, {{ ev.id }}, {{ ev.file_name | tojson }})"
+                        title="Preview file">
+                  <i class="fa fa-eye"></i>
+                </button>
+                <button class="btn btn-outline-secondary d-inline" style="font-size:.75rem;padding:1px 6px;"
                         onclick="cocOpen({{ ev.id }}, '{{ ev.evidence_number }}', '{{ ev.coc_number }}')"
                         title="Chain of Custody">
                   <i class="fa fa-link"></i> CoC
@@ -695,6 +700,27 @@
   </div>
 </div>
 
+<!-- Evidence Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content bg-dark border-secondary">
+      <div class="modal-header border-secondary py-2">
+        <h6 class="modal-title text-truncate" id="previewModalTitle" style="max-width:80%">Preview</h6>
+        <div class="ms-auto d-flex gap-2 align-items-center">
+          <a id="previewDownload" href="#" class="btn btn-sm btn-outline-secondary py-0" download>
+            <i class="fa fa-download me-1"></i>Download
+          </a>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+      </div>
+      <div class="modal-body p-0" style="height:78vh">
+        <iframe id="previewFrame" src="" style="width:100%;height:100%;border:none"
+                sandbox="allow-scripts allow-same-origin"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -924,4 +950,17 @@
   .prose-dark hr { border-color: #313244; }
   .prose-dark ul, .prose-dark ol { padding-left: 1.4em; }
 </style>
+
+<script>
+function evPreview(caseId, evId, fileName) {
+  document.getElementById('previewModalTitle').textContent = fileName;
+  document.getElementById('previewFrame').src = `/cases/${caseId}/evidence/${evId}/preview`;
+  document.getElementById('previewDownload').href = `/uploads/${caseId}/${fileName}`;
+  new bootstrap.Modal(document.getElementById('previewModal')).show();
+}
+// Reset iframe src when modal closes (stop loading/playing)
+document.getElementById('previewModal').addEventListener('hidden.bs.modal', () => {
+  document.getElementById('previewFrame').src = '';
+});
+</script>
 {% endblock %}
