@@ -232,6 +232,17 @@ def _scan_case_background(case_id: int, scanned_by: str) -> None:
         audit.log(db, case_id,
                   f"YARA SCAN: {file_count} file(s) scanned, {match_count} match(es) found",
                   investigator=scanned_by, app_name="Yara")
+        if match_count > 0:
+            from .alerts import maybe_notify
+            maybe_notify(
+                db,
+                rule_type="yara_match",
+                title=f"YARA: {match_count} match(es) in case",
+                body=f"{file_count} file(s) scanned, {match_count} rule match(es) found",
+                severity="warning",
+                link=f"/cases/{case_id}",
+                case_id=case_id,
+            )
     except Exception as e:
         log.exception("Yara background scan crashed: %s", e)
     finally:

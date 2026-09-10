@@ -108,6 +108,8 @@ class Case(Base):
                                        order_by="EnrichmentResult.queried_at.desc()")
     tags                = relationship("CaseTag", back_populates="case", cascade="all, delete-orphan",
                                        order_by="CaseTag.name")
+    notifications       = relationship("Notification", back_populates="case", cascade="all, delete-orphan",
+                                       order_by="Notification.created_at.desc()")
 
 
 class Investigator(Base):
@@ -289,6 +291,30 @@ class PipelineRun(Base):
     completed_at   = Column(DateTime, nullable=True)
 
     case = relationship("Case", back_populates="pipeline_runs")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id         = Column(Integer, primary_key=True)
+    case_id    = Column(Integer, ForeignKey("cases.id"), nullable=True)
+    rule_type  = Column(String(50), nullable=False)
+    severity   = Column(String(20), default="info")   # info | warning | critical
+    title      = Column(String(255), nullable=False)
+    body       = Column(Text, default="")
+    link       = Column(String(500), default="")
+    is_read    = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    case       = relationship("Case", back_populates="notifications")
+
+
+class AlertRule(Base):
+    __tablename__ = "alert_rules"
+    id          = Column(Integer, primary_key=True)
+    name        = Column(String(255), nullable=False)
+    rule_type   = Column(String(50), nullable=False, unique=True)
+    enabled     = Column(Integer, default=1)
+    config_json = Column(Text, default="{}")
+    created_at  = Column(DateTime, default=datetime.utcnow)
 
 
 class CaseTag(Base):

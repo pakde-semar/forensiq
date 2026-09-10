@@ -10,11 +10,22 @@ from sqlalchemy.orm import Session
 from .database import engine, get_db
 from . import models
 from .templates_env import templates
-from .routers import agency, cases, evidence, reports, integrations, lookup, pipeline, coc, export, yara, hashverify, timeclock, notes, timeline, preview, iocgraph, invheatmap, enrichment, bulkimport, tagsearch, metadata
+from .routers import agency, cases, evidence, reports, integrations, lookup, pipeline, coc, export, yara, hashverify, timeclock, notes, timeline, preview, iocgraph, invheatmap, enrichment, bulkimport, tagsearch, metadata, alerts
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="ForensiQ", version="0.1.0")
+
+
+@app.on_event("startup")
+def _startup():
+    from .database import SessionLocal as _SL
+    from .routers.alerts import ensure_default_rules
+    db = _SL()
+    try:
+        ensure_default_rules(db)
+    finally:
+        db.close()
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
@@ -40,6 +51,7 @@ app.include_router(enrichment.router)
 app.include_router(bulkimport.router)
 app.include_router(tagsearch.router)
 app.include_router(metadata.router)
+app.include_router(alerts.router)
 
 
 @app.get("/")

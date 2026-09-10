@@ -93,6 +93,17 @@ def _run_batch(case_id: int, run_by: str) -> None:
         audit.log(db, case_id,
                   f"HASH VERIFY BATCH: {len(results)} evidence — {summary}",
                   investigator=run_by, app_name="HashVerify")
+        if counts.get("tampered", 0) > 0:
+            from .alerts import maybe_notify
+            maybe_notify(
+                db,
+                rule_type="hash_tampered",
+                title=f"Hash tampered: {counts['tampered']} evidence item(s)",
+                body=summary,
+                severity="critical",
+                link=f"/cases/{case_id}",
+                case_id=case_id,
+            )
     except Exception as e:
         log.exception("Hash verify batch crashed: %s", e)
     finally:

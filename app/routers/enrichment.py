@@ -154,6 +154,17 @@ def _enrich_bg(case_id: int, ioc_type: str, ioc_value: str, provider: str, queri
         audit.log(db, case_id,
                   f"Enriched {ioc_type} {ioc_value} via {provider}: {verdict}",
                   investigator=queried_by, app_name="Enrichment")
+        if verdict == "malicious":
+            from .alerts import maybe_notify
+            maybe_notify(
+                db,
+                rule_type="enrichment_malicious",
+                title=f"Malicious IOC: {ioc_value}",
+                body=f"{provider} flagged {ioc_type} as malicious — {summary}",
+                severity="critical",
+                link=f"/cases/{case_id}",
+                case_id=case_id,
+            )
     finally:
         db.close()
 

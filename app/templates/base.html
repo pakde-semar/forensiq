@@ -45,7 +45,30 @@
 <body>
 
 <nav class="sidebar d-flex flex-column">
-  <div class="brand"><i class="fa fa-shield-halved me-2"></i>ForensiQ</div>
+  <div class="brand d-flex align-items-center justify-content-between pe-2">
+    <span><i class="fa fa-shield-halved me-2"></i>ForensiQ</span>
+    <div class="dropdown" style="position:relative">
+      <button id="bellBtn" class="btn p-0 border-0 bg-transparent position-relative"
+              style="color:#8b949e;font-size:1rem" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="fa fa-bell"></i>
+        <span id="bellBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill"
+              style="background:#f38ba8;font-size:.5rem;padding:2px 4px;display:none">0</span>
+      </button>
+      <div class="dropdown-menu dropdown-menu-end p-0"
+           style="min-width:320px;max-height:400px;overflow-y:auto;background:#1c2128;border:1px solid #30363d">
+        <div class="d-flex align-items-center justify-content-between px-3 py-2"
+             style="border-bottom:1px solid #30363d;background:#21262d">
+          <span style="font-size:.8rem;font-weight:600;color:#cdd6f4">Notifications</span>
+          <div class="d-flex gap-2">
+            <button onclick="markAllRead()" class="btn btn-sm p-0 border-0 bg-transparent"
+                    style="font-size:.7rem;color:#89b4fa">Mark all read</button>
+            <a href="/settings/alerts" style="font-size:.7rem;color:#89b4fa;text-decoration:none">Settings</a>
+          </div>
+        </div>
+        <div id="bellList" style="font-size:.8rem"></div>
+      </div>
+    </div>
+  </div>
   <ul class="nav flex-column">
     <li class="nav-item">
       <a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/">
@@ -73,8 +96,13 @@
       </a>
     </li>
     <li class="nav-item">
-      <a class="nav-link {% if '/settings' in request.url.path %}active{% endif %}" href="/settings/enrichment">
+      <a class="nav-link {% if '/settings/enrichment' in request.url.path %}active{% endif %}" href="/settings/enrichment">
         <i class="fa fa-key"></i> API Keys
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if '/settings/alerts' in request.url.path %}active{% endif %}" href="/settings/alerts">
+        <i class="fa fa-bell"></i> Alert Rules
       </a>
     </li>
     <li class="nav-item">
@@ -172,6 +200,68 @@
       _qs?.focus();
     }
   });
+
+  // ── Bell notifications ───────────────────────────────────────────────────
+  const SEV_COLOR = { critical: '#f38ba8', warning: '#f9e2af', info: '#89b4fa' };
+
+  async function loadBell() {
+    try {
+      const [cntR, listR] = await Promise.all([
+        fetch('/api/notifications/unread'),
+        fetch('/api/notifications/recent'),
+      ]);
+      const { count } = await cntR.json();
+      const items     = await listR.json();
+
+      const badge = document.getElementById('bellBadge');
+      if (badge) {
+        badge.textContent   = count > 99 ? '99+' : count;
+        badge.style.display = count > 0 ? '' : 'none';
+      }
+
+      const list = document.getElementById('bellList');
+      if (!list) return;
+      if (!items.length) {
+        list.innerHTML = '<div class="text-muted text-center py-3" style="font-size:.78rem">No notifications</div>';
+        return;
+      }
+      list.innerHTML = items.map(n => `
+        <div class="d-flex align-items-start gap-2 px-3 py-2"
+             style="border-bottom:1px solid #30363d30;${!n.is_read ? 'background:#89b4fa08' : ''}">
+          <span style="width:7px;height:7px;min-width:7px;border-radius:50%;margin-top:5px;
+                       background:${!n.is_read ? SEV_COLOR[n.severity] || '#89b4fa' : 'transparent'}"></span>
+          <div style="flex:1;min-width:0">
+            ${n.link
+              ? `<a href="${n.link}" class="d-block" style="color:#cdd6f4;text-decoration:none;font-size:.78rem;font-weight:${n.is_read?'400':'600'}">${esc(n.title)}</a>`
+              : `<div style="color:#cdd6f4;font-size:.78rem;font-weight:${n.is_read?'400':'600'}">${esc(n.title)}</div>`}
+            ${n.body ? `<div style="font-size:.7rem;color:#6c7086">${esc(n.body)}</div>` : ''}
+            <div style="font-size:.65rem;color:#484f58">${n.created_at ? n.created_at.replace('T',' ').slice(0,16) : ''}</div>
+          </div>
+          <button onclick="dismissNotif(${n.id},this)" class="btn p-0 border-0 bg-transparent"
+                  style="font-size:.7rem;color:#484f58">✕</button>
+        </div>`).join('');
+    } catch(e) {}
+  }
+
+  async function markAllRead() {
+    await fetch('/api/notifications/read_all', {method:'POST'});
+    loadBell();
+  }
+
+  async function dismissNotif(id, btn) {
+    btn.closest('div[style]').remove();
+    await fetch(`/api/notifications/${id}/delete`, {method:'POST'});
+    loadBell();
+  }
+
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Load on page ready + refresh every 60s
+  loadBell();
+  document.getElementById('bellBtn')?.addEventListener('shown.bs.dropdown', loadBell);
+  setInterval(loadBell, 60000);
 </script>
 </body>
 </html>
