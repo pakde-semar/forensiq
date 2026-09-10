@@ -1,6 +1,6 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, Form, UploadFile, File
 from fastapi.responses import RedirectResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
+from ..templates_env import templates as _shared_templates
 from sqlalchemy.orm import Session
 from pathlib import Path
 from datetime import datetime
@@ -13,7 +13,7 @@ from ..core.coc import next_coc_number, next_evidence_number
 from ..core.pipeline import trigger_auto
 
 router = APIRouter(prefix="/cases/{case_id}/evidence", tags=["evidence"])
-templates = Jinja2Templates(directory="app/templates")
+templates = _shared_templates
 
 UPLOAD_ROOT = Path("uploads")
 

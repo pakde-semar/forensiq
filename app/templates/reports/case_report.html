@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ case.case_number }} — {{ case.name }}</title>
+  <style>
+    /* ── Page layout ── */
+    @page {
+      size: A4;
+      margin: 2.2cm 2cm 2.8cm;
+      @bottom-left {
+        content: "{{ agency.name }} · CONFIDENTIAL";
+        font-size: 8pt;
+        color: #aaa;
+        font-family: Arial, sans-serif;
+      }
+      @bottom-center {
+        content: "{{ case.case_number }}";
+        font-size: 8pt;
+        color: #aaa;
+        font-family: Arial, sans-serif;
+      }
+      @bottom-right {
+        content: "Page " counter(page) " of " counter(pages);
+        font-size: 8pt;
+        color: #aaa;
+        font-family: Arial, sans-serif;
+      }
+    }
+    @page :first {
+      @bottom-left   { content: none; }
+      @bottom-center { content: none; }
+      @bottom-right  { content: none; }
+    }
+
+    /* ── Base ── */
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, 'Liberation Sans', Helvetica, sans-serif;
+      font-size: 11pt;
+      color: #1a1a1a;
+      margin: 0;
+      padding: 0;
+      line-height: 1.5;
+    }
+
+    /* ── Cover page ── */
+    .cover {
+      page-break-after: always;
+      min-height: 240mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 20mm 0 10mm;
+    }
+    .cover-top { border-bottom: 3px solid #0d6efd; padding-bottom: 16pt; }
+    .cover-agency { font-size: 22pt; font-weight: 700; color: #0d6efd; }
+    .cover-unit   { font-size: 12pt; color: #555; margin-top: 4pt; }
+    .cover-addr   { font-size: 10pt; color: #777; margin-top: 6pt; }
+    .cover-middle { text-align: center; padding: 24mm 0; }
+    .cover-label  { font-size: 11pt; color: #777; text-transform: uppercase; letter-spacing: 2pt; }
+    .cover-title  { font-size: 24pt; font-weight: 700; margin-top: 8pt; }
+    .cover-subtitle { font-size: 14pt; color: #555; margin-top: 6pt; }
+    .cover-meta   { display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; margin-top: 20pt; }
+    .cover-meta-item { border: 1px solid #e0e0e0; border-radius: 4pt; padding: 8pt 10pt; }
+    .cover-meta-item .label { font-size: 8pt; color: #888; text-transform: uppercase; letter-spacing: 1pt; }
+    .cover-meta-item .value { font-size: 12pt; font-weight: 600; margin-top: 2pt; }
+    .cover-bottom { border-top: 1px solid #ddd; padding-top: 10pt; font-size: 9pt; color: #aaa; }
+    .cover-classification {
+      display: inline-block;
+      padding: 4pt 16pt;
+      border: 2px solid #dc3545;
+      color: #dc3545;
+      font-weight: 700;
+      font-size: 10pt;
+      letter-spacing: 2pt;
+      text-transform: uppercase;
+      border-radius: 2pt;
+      margin-bottom: 16pt;
+    }
+
+    /* ── Section headings ── */
+    h2 {
+      font-size: 13pt;
+      font-weight: 700;
+      color: #0d6efd;
+      border-bottom: 1.5pt solid #0d6efd;
+      padding-bottom: 4pt;
+      margin-top: 20pt;
+      margin-bottom: 10pt;
+      break-after: avoid;
+    }
+    h3 {
+      font-size: 11pt;
+      color: #333;
+      margin-top: 14pt;
+      break-after: avoid;
+    }
+
+    /* ── Tables ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6pt;
+      font-size: 10pt;
+      break-inside: auto;
+    }
+    thead { display: table-header-group; }
+    tr    { break-inside: avoid; }
+    th, td { border: 0.5pt solid #d0d0d0; padding: 5pt 7pt; text-align: left; vertical-align: top; }
+    th { background: #f0f4ff; font-weight: 600; color: #333; }
+    tr:nth-child(even) td { background: #fafafa; }
+
+    /* ── Meta grid ── */
+    .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; margin-top: 8pt; }
+    .meta-item { border: 0.5pt solid #e0e0e0; padding: 7pt 9pt; border-radius: 3pt; }
+    .meta-item strong { display: block; font-size: 8pt; color: #888; text-transform: uppercase;
+                        letter-spacing: 0.5pt; margin-bottom: 2pt; }
+
+    /* ── Notes ── */
+    .notes {
+      background: #f9f9f9;
+      border: 0.5pt solid #e0e0e0;
+      border-left: 3pt solid #0d6efd;
+      padding: 10pt 12pt;
+      border-radius: 3pt;
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+      font-size: 9.5pt;
+      line-height: 1.6;
+    }
+
+    /* ── Hash / mono ── */
+    .hash { font-family: 'Courier New', monospace; font-size: 8.5pt; color: #444; word-break: break-all; }
+    code  { font-family: 'Courier New', monospace; font-size: 9pt; background: #f4f4f4;
+            padding: 1pt 3pt; border-radius: 2pt; }
+
+    /* ── Badges ── */
+    .badge { display: inline-block; padding: 1.5pt 6pt; border-radius: 3pt;
+             font-size: 9pt; font-weight: 700; }
+    .badge-critical { background: #dc3545; color: #fff; }
+    .badge-high     { background: #fd7e14; color: #fff; }
+    .badge-medium   { background: #ffc107; color: #000; }
+    .badge-low      { background: #198754; color: #fff; }
+    .badge-open     { background: #0d6efd; color: #fff; }
+    .badge-active   { background: #198754; color: #fff; }
+    .badge-review   { background: #ffc107; color: #000; }
+    .badge-closed   { background: #6c757d; color: #fff; }
+    .badge-archived { background: #343a40; color: #fff; }
+
+    /* ── Section page breaks ── */
+    .section { break-inside: avoid-page; }
+    .page-break { break-before: page; }
+
+    /* ── Audit table small text ── */
+    .audit-table td, .audit-table th { font-size: 9pt; padding: 4pt 6pt; }
+    .ts { white-space: nowrap; font-family: 'Courier New', monospace; font-size: 8.5pt; }
+
+    /* ── Footer bar ── */
+    .doc-footer {
+      margin-top: 30pt;
+      border-top: 1pt solid #ddd;
+      padding-top: 8pt;
+      font-size: 8.5pt;
+      color: #aaa;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+{# ── Cover Page ── #}
+<div class="cover">
+  <div class="cover-top">
+    <div class="cover-agency">{{ agency.name }}</div>
+    {% if agency.unit %}<div class="cover-unit">{{ agency.unit }}</div>{% endif %}
+    <div class="cover-addr">
+      {{ agency.address or "" }}{% if agency.city %}, {{ agency.city }}{% endif %}{% if agency.country %}, {{ agency.country }}{% endif %}
+      {% if agency.phone %} · {{ agency.phone }}{% endif %}
+      {% if agency.email %} · {{ agency.email }}{% endif %}
+    </div>
+  </div>
+
+  <div class="cover-middle">
+    <div class="cover-classification">{{ case.classification }}</div>
+    <div class="cover-label">Forensic Case Report</div>
+    <div class="cover-title">{{ case.name }}</div>
+    <div class="cover-subtitle"><code>{{ case.case_number }}</code></div>
+
+    <div class="cover-meta">
+      <div class="cover-meta-item">
+        <div class="label">Case Type</div>
+        <div class="value">{{ case.case_type or "—" }}</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="label">Status</div>
+        <div class="value">
+          <span class="badge badge-{{ case.status | lower }}">{{ case.status }}</span>
+        </div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="label">Priority</div>
+        <div class="value">
+          <span class="badge badge-{{ case.priority | lower }}">{{ case.priority }}</span>
+        </div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="label">Date Opened</div>
+        <div class="value">{{ case.created_at.strftime("%d %b %Y") }}</div>
+      </div>
+      {% if case.investigators %}
+      <div class="cover-meta-item">
+        <div class="label">Lead Investigator</div>
+        <div class="value">
+          {% for inv in case.investigators if inv.is_lead %}{{ inv.name }}{% endfor %}
+          {% if not case.investigators | selectattr("is_lead") | list %}{{ case.investigators[0].name }}{% endif %}
+        </div>
+      </div>
+      {% endif %}
+      {% if agency.supervisor_name %}
+      <div class="cover-meta-item">
+        <div class="label">Supervisor</div>
+        <div class="value">{{ agency.supervisor_name }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="cover-bottom">
+    Generated: {{ generated_at }}{% if created_by %} · Prepared by: {{ created_by }}{% endif %}<br>
+    {% if agency.legal_records_custodian %}Records Custodian: {{ agency.legal_records_custodian }} · {% endif %}
+    This document is {{ case.classification }} and intended for authorized personnel only.
+  </div>
+</div>
+
+
+{# ── Case Summary ── #}
+<h2>1. Case Summary</h2>
+<div class="meta">
+  <div class="meta-item"><strong>Case Number</strong>{{ case.case_number }}</div>
+  <div class="meta-item"><strong>Case Type</strong>{{ case.case_type or "—" }}</div>
+  <div class="meta-item"><strong>Status</strong>
+    <span class="badge badge-{{ case.status | lower }}">{{ case.status }}</span>
+  </div>
+  <div class="meta-item"><strong>Priority</strong>
+    <span class="badge badge-{{ case.priority | lower }}">{{ case.priority }}</span>
+  </div>
+  <div class="meta-item"><strong>Classification</strong>{{ case.classification }}</div>
+  <div class="meta-item"><strong>Date Opened</strong>{{ case.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</div>
+  {% if case.closed_at %}
+  <div class="meta-item"><strong>Date Closed</strong>{{ case.closed_at.strftime("%Y-%m-%d %H:%M UTC") }}</div>
+  {% endif %}
+  <div class="meta-item"><strong>Evidence Count</strong>{{ case.evidence | length }} item{{ "s" if case.evidence | length != 1 }}</div>
+</div>
+
+
+{# ── Investigators ── #}
+{% if case.investigators %}
+<h2>2. Investigators</h2>
+<table>
+  <thead>
+    <tr><th>Name</th><th>Email</th><th>Role</th><th>Time Logged</th></tr>
+  </thead>
+  <tbody>
+    {% for inv in case.investigators %}
+    <tr>
+      <td>{{ inv.name }}</td>
+      <td>{{ inv.email or "—" }}</td>
+      <td>{% if inv.is_lead %}Lead Investigator{% else %}Investigator{% endif %}</td>
+      <td>{{ inv.timeclock_minutes }} min</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+
+{# ── Case Notes ── #}
+{% if case.notes %}
+<h2>3. Case Notes</h2>
+<div class="notes">{{ case.notes }}</div>
+{% endif %}
+
+
+{# ── Evidence ── #}
+{% if case.evidence %}
+<h2 class="page-break">4. Evidence ({{ case.evidence | length }} item{{ "s" if case.evidence | length != 1 }})</h2>
+<table>
+  <thead>
+    <tr>
+      <th style="width:7%">Ev#</th>
+      <th style="width:7%">CoC#</th>
+      <th>File &amp; Hashes</th>
+      <th style="width:12%">Category</th>
+      <th style="width:8%">Size</th>
+      <th style="width:12%">Submitter</th>
+      <th style="width:10%">Date</th>
+      <th style="width:8%">Verified</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for ev in case.evidence %}
+    <tr>
+      <td>{{ ev.evidence_number }}</td>
+      <td>{{ ev.coc_number }}</td>
+      <td>
+        <strong>{{ ev.file_name }}</strong>
+        {% if ev.md5 %}<br><span class="hash">MD5: {{ ev.md5 }}</span>{% endif %}
+        {% if ev.sha256 %}<br><span class="hash">SHA256: {{ ev.sha256 }}</span>{% endif %}
+        {% if ev.notes %}<br><em style="font-size:9pt;color:#555">{{ ev.notes }}</em>{% endif %}
+      </td>
+      <td>{{ ev.category }}</td>
+      <td>{{ "%.1f"|format(ev.file_size / 1024) }} KB</td>
+      <td>{{ ev.submitter or "—" }}</td>
+      <td>{{ ev.date_added.strftime("%Y-%m-%d") }}</td>
+      <td>
+        {% if ev.verified_at %}
+          ✓ {{ ev.verified_at.strftime("%Y-%m-%d") }}
+        {% else %}—{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+
+{# ── Integrations ── #}
+{% if case.flowintel_case_id or case.misp_event_id %}
+<h2>5. External Integrations</h2>
+<div class="meta">
+  {% if case.flowintel_case_id %}
+  <div class="meta-item"><strong>Flowintel Case ID</strong>#{{ case.flowintel_case_id }}</div>
+  {% endif %}
+  {% if case.misp_event_id %}
+  <div class="meta-item"><strong>MISP Event ID</strong>{{ case.misp_event_id }}</div>
+  {% endif %}
+</div>
+{% endif %}
+
+
+{# ── Audit Trail ── #}
+{% if case.audit_logs %}
+<h2 class="page-break">6. Audit Trail</h2>
+<table class="audit-table">
+  <thead>
+    <tr><th style="width:16%">Timestamp</th><th style="width:12%">Module</th><th style="width:14%">Investigator</th><th>Event</th></tr>
+  </thead>
+  <tbody>
+    {% for log in case.audit_logs %}
+    <tr>
+      <td class="ts">{{ log.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+      <td>{{ log.app_name }}</td>
+      <td>{{ log.investigator or "—" }}</td>
+      <td>{{ log.message }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+
+<div class="doc-footer">
+  ForensiQ · {{ agency.name }} · {{ case.case_number }} ·
+  Generated {{ generated_at }}{% if created_by %} by {{ created_by }}{% endif %}
+  {% if agency.legal_records_custodian %} · Records Custodian: {{ agency.legal_records_custodian }}{% endif %}
+</div>
+
+</body>
+</html>

@@ -95,22 +95,52 @@ def render_tab(case) -> str:  # noqa: ANN001
         preloaded_rows += _rows(kind, values)
         preloaded_count += len(values)
 
+    case_id = case.id
     preloaded_section = f"""
     <div class="card">
-      <div class="card-header d-flex justify-content-between">
-        <span><i class="fa fa-note-sticky me-1"></i>From Case Notes</span>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fa fa-note-sticky me-1"></i>From Case Notes &amp; Evidence</span>
         <span class="badge bg-secondary">{preloaded_count} IOC{"s" if preloaded_count != 1 else ""}</span>
       </div>
       <div class="card-body p-0" style="max-height:320px;overflow-y:auto">
         {"<table class='table table-sm table-dark mb-0'><tbody>" + preloaded_rows + "</tbody></table>" if preloaded_rows else "<p class='text-muted small p-3 mb-0'>No IOCs found in case notes.</p>"}
       </div>
-    </div>""" if True else ""
+      <div class="card-footer d-flex gap-2 py-2">
+        <a href="/cases/{case_id}/export/iocs.csv"
+           class="btn btn-sm btn-outline-secondary" download>
+          <i class="fa fa-file-csv me-1"></i>Export CSV
+        </a>
+        <a href="/cases/{case_id}/export/iocs.stix.json"
+           class="btn btn-sm btn-outline-secondary" download>
+          <i class="fa fa-file-code me-1"></i>Export STIX 2.1
+        </a>
+        <button class="btn btn-sm btn-outline-secondary ms-auto"
+                onclick="iocPreview({case_id})">
+          <i class="fa fa-list me-1"></i>Preview all
+        </button>
+      </div>
+    </div>"""
 
     return f"""
 <div class="row g-3 mt-1">
 
   <div class="col-md-6">
     {preloaded_section}
+
+    <div id="ioc-preview-{case_id}" class="mt-2" style="display:none">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>All Extracted IOCs (JSON)</span>
+          <button class="btn btn-sm py-0 btn-outline-secondary"
+                  onclick="document.getElementById('ioc-preview-{case_id}').style.display='none'">
+            <i class="fa fa-xmark"></i>
+          </button>
+        </div>
+        <div class="card-body p-2">
+          <pre id="ioc-preview-body-{case_id}" class="small mb-0" style="max-height:260px;overflow-y:auto"></pre>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="col-md-6">
@@ -207,6 +237,21 @@ def render_tab(case) -> str:  # noqa: ANN001
     }}
     tbody.innerHTML = html || '<tr><td colspan="3" class="text-muted small p-3">No IOCs found.</td></tr>';
   }}
+
+  window.iocPreview = async function(caseId) {{
+    const div = document.getElementById('ioc-preview-' + caseId);
+    const pre = document.getElementById('ioc-preview-body-' + caseId);
+    if (div.style.display !== 'none') {{ div.style.display = 'none'; return; }}
+    pre.textContent = 'Loading…';
+    div.style.display = '';
+    try {{
+      const r = await fetch(`/cases/${{caseId}}/export/iocs`);
+      const d = await r.json();
+      pre.textContent = JSON.stringify(d, null, 2);
+    }} catch(e) {{
+      pre.textContent = 'Error: ' + e;
+    }}
+  }};
 
   window.iocOsint = async function(type, q) {{
     const panel = document.getElementById('ioc-osint-panel');

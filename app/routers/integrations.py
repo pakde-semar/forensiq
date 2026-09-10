@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
+from ..templates_env import templates as _shared_templates
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models
@@ -9,7 +9,7 @@ from ..integrations import flowintel as fw
 from ..integrations import misp as mp
 
 router = APIRouter(prefix="/cases/{case_id}/integrations", tags=["integrations"])
-templates = Jinja2Templates(directory="app/templates")
+templates = _shared_templates
 
 
 # ─── Flowintel ───────────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from .database import engine, get_db
 from . import models
 from .templates_env import templates
-from .routers import agency, cases, evidence, reports, integrations, lookup, pipeline, coc
+from .routers import agency, cases, evidence, reports, integrations, lookup, pipeline, coc, export
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -22,6 +22,7 @@ app.include_router(integrations.router)
 app.include_router(lookup.router)
 app.include_router(pipeline.router)
 app.include_router(coc.router)
+app.include_router(export.router)
 
 
 @app.get("/")

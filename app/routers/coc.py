@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form
 from fastapi.responses import RedirectResponse, Response, JSONResponse
-from fastapi.templating import Jinja2Templates
+from ..templates_env import templates as _shared_templates
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -18,7 +18,7 @@ router = APIRouter(
     prefix="/cases/{case_id}/evidence/{ev_id}/coc",
     tags=["coc"],
 )
-templates = Jinja2Templates(directory="app/templates")
+templates = _shared_templates
 
 REPORTS_ROOT = Path("reports")
 

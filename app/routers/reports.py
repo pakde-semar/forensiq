@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form
 from fastapi.responses import RedirectResponse, FileResponse, Response
-from fastapi.templating import Jinja2Templates
+from ..templates_env import templates as _shared_templates
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -16,7 +16,7 @@ from ..routers.agency import get_or_create_agency
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/cases/{case_id}/reports", tags=["reports"])
-templates = Jinja2Templates(directory="app/templates")
+templates = _shared_templates
 
 REPORTS_ROOT = Path("reports")
 

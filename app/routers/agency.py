@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
+from ..templates_env import templates as _shared_templates
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models
 
 router = APIRouter(prefix="/agency", tags=["agency"])
-templates = Jinja2Templates(directory="app/templates")
+templates = _shared_templates
 
 
 def get_or_create_agency(db: Session) -> models.Agency:
