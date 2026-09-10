@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Enrichment Settings — ForensiQ{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <h5 class="mb-0"><i class="fa fa-key me-2"></i>Threat Intel API Keys</h5>
+</div>
+
+{% if saved %}
+<div class="alert alert-success py-2 mb-3" style="background:#a6e3a122;border:1px solid #a6e3a155;color:#a6e3a1">
+  <i class="fa fa-check me-2"></i>API keys saved successfully.
+</div>
+{% endif %}
+
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card p-4">
+      <p class="text-muted small mb-4">
+        API keys are stored in the local database. Keys are used only for IOC enrichment lookups from case detail pages.
+        Leave blank to disable a provider.
+      </p>
+
+      <form method="post" action="/settings/enrichment">
+
+        <!-- VirusTotal -->
+        <div class="mb-4">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span style="font-size:.85rem;font-weight:600;color:#f9e2af">
+              <i class="fa fa-virus me-1"></i>VirusTotal
+            </span>
+            <span class="badge" style="background:#f9e2af22;color:#f9e2af;border:1px solid #f9e2af55;font-size:.6rem">
+              IP · Domain · MD5 · SHA256 · SHA1 · URL
+            </span>
+            <a href="https://www.virustotal.com/gui/my-apikey" target="_blank"
+               class="ms-auto text-muted small" style="font-size:.72rem">Get key ↗</a>
+          </div>
+          <input type="password" name="vt_key" class="form-control form-control-sm"
+                 value="{{ vt_key }}" placeholder="VirusTotal API key (64 hex chars)"
+                 autocomplete="new-password"
+                 style="font-family:monospace;font-size:.8rem">
+        </div>
+
+        <!-- AbuseIPDB -->
+        <div class="mb-4">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span style="font-size:.85rem;font-weight:600;color:#f38ba8">
+              <i class="fa fa-ban me-1"></i>AbuseIPDB
+            </span>
+            <span class="badge" style="background:#f38ba822;color:#f38ba8;border:1px solid #f38ba855;font-size:.6rem">
+              IPv4 only
+            </span>
+            <a href="https://www.abuseipdb.com/account/api" target="_blank"
+               class="ms-auto text-muted small" style="font-size:.72rem">Get key ↗</a>
+          </div>
+          <input type="password" name="abuseipdb_key" class="form-control form-control-sm"
+                 value="{{ abuseipdb_key }}" placeholder="AbuseIPDB API key"
+                 autocomplete="new-password"
+                 style="font-family:monospace;font-size:.8rem">
+        </div>
+
+        <!-- Shodan -->
+        <div class="mb-4">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span style="font-size:.85rem;font-weight:600;color:#89b4fa">
+              <i class="fa fa-satellite-dish me-1"></i>Shodan
+            </span>
+            <span class="badge" style="background:#89b4fa22;color:#89b4fa;border:1px solid #89b4fa55;font-size:.6rem">
+              IPv4 · Domain
+            </span>
+            <a href="https://account.shodan.io/" target="_blank"
+               class="ms-auto text-muted small" style="font-size:.72rem">Get key ↗</a>
+          </div>
+          <input type="password" name="shodan_key" class="form-control form-control-sm"
+                 value="{{ shodan_key }}" placeholder="Shodan API key"
+                 autocomplete="new-password"
+                 style="font-family:monospace;font-size:.8rem">
+        </div>
+
+        <button type="submit" class="btn btn-sm px-4"
+                style="background:#a6e3a1;color:#1e1e2e;font-weight:600">
+          <i class="fa fa-save me-1"></i>Save Keys
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

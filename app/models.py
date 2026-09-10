@@ -104,6 +104,8 @@ class Case(Base):
                                        order_by="TimeEntry.clock_in.desc()")
     notes_wiki          = relationship("CaseNote",         back_populates="case", cascade="all, delete-orphan",
                                        order_by="CaseNote.updated_at.desc()")
+    enrichment_results  = relationship("EnrichmentResult", back_populates="case", cascade="all, delete-orphan",
+                                       order_by="EnrichmentResult.queried_at.desc()")
 
 
 class Investigator(Base):
@@ -283,3 +285,25 @@ class PipelineRun(Base):
     completed_at   = Column(DateTime, nullable=True)
 
     case = relationship("Case", back_populates="pipeline_runs")
+
+
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+    key   = Column(String(100), primary_key=True)
+    value = Column(Text, default="")
+
+
+class EnrichmentResult(Base):
+    __tablename__ = "enrichment_results"
+    id          = Column(Integer, primary_key=True)
+    case_id     = Column(Integer, ForeignKey("cases.id"), nullable=False)
+    ioc_type    = Column(String(50), nullable=False)
+    ioc_value   = Column(String(500), nullable=False)
+    provider    = Column(String(50), nullable=False)
+    queried_at  = Column(DateTime, default=datetime.utcnow)
+    queried_by  = Column(String(255), default="")
+    verdict     = Column(String(20), default="unknown")  # clean | suspicious | malicious | unknown | error
+    summary     = Column(String(500), default="")
+    result_json = Column(Text, default="{}")
+
+    case = relationship("Case", back_populates="enrichment_results")

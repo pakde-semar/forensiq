@@ -72,6 +72,11 @@
         <i class="fa fa-users"></i> Investigators
       </a>
     </li>
+    <li class="nav-item">
+      <a class="nav-link {% if '/settings' in request.url.path %}active{% endif %}" href="/settings/enrichment">
+        <i class="fa fa-key"></i> API Keys
+      </a>
+    </li>
   </ul>
   <div class="mt-auto p-3">
     {# Quick search #}
