@@ -142,6 +142,8 @@ class Evidence(Base):
     submitter         = Column(String(255), default="")
     md5               = Column(String(32), default="")
     sha256            = Column(String(64), default="")
+    metadata_json         = Column(Text, default="{}")
+    metadata_extracted_at = Column(DateTime, nullable=True)
     notes             = Column(Text, default="")
     date_added        = Column(DateTime, default=datetime.utcnow)
     verified_at       = Column(DateTime, nullable=True)
