@@ -147,7 +147,13 @@
   {# ── Evidence ── #}
   <div class="tab-pane fade" id="tab-evidence">
     <div class="card mb-3">
-      <div class="card-header"><i class="fa fa-upload me-1"></i>Add Evidence</div>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fa fa-upload me-1"></i>Add Evidence</span>
+        <button class="btn btn-sm btn-outline-secondary py-0" style="font-size:.75rem"
+                data-bs-toggle="modal" data-bs-target="#modalBulkImport">
+          <i class="fa fa-file-zipper me-1"></i>Bulk Import ZIP
+        </button>
+      </div>
       <div class="card-body">
         <form method="post" action="/cases/{{ case.id }}/evidence/upload" enctype="multipart/form-data">
           <div class="row g-2">
@@ -699,6 +705,160 @@
     </div>
   </div>
 </div>
+
+<!-- Bulk Import Modal -->
+<div class="modal fade" id="modalBulkImport" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark border-secondary">
+      <div class="modal-header border-secondary py-2">
+        <h6 class="modal-title"><i class="fa fa-file-zipper me-2"></i>Bulk Import Evidence from ZIP</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Upload form -->
+        <div id="bulkFormSection">
+          <p class="text-muted small mb-3">
+            Upload a ZIP archive. Each file inside will be registered as a separate evidence item
+            with its MD5 and SHA256 computed automatically. Max 300 files, 500 MB per file.
+          </p>
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <label class="text-muted small mb-1">ZIP File <span class="text-danger">*</span></label>
+              <input type="file" id="bulkZipFile" accept=".zip" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-6">
+              <label class="text-muted small mb-1">Evidence Category</label>
+              <select id="bulkCategory" class="form-select form-select-sm">
+                {% for cat in categories %}
+                <option value="{{ cat }}">{{ cat }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="text-muted small mb-1">Investigator</label>
+              <input type="text" id="bulkInvestigator" class="form-control form-control-sm" placeholder="Your name">
+            </div>
+            <div class="col-md-6">
+              <label class="text-muted small mb-1">Notes prefix (optional)</label>
+              <input type="text" id="bulkNotes" class="form-control form-control-sm" placeholder="e.g. Suspect laptop">
+            </div>
+          </div>
+          <div id="bulkErr" class="text-danger small mb-2" style="display:none"></div>
+          <button class="btn btn-sm px-4" style="background:#a6e3a1;color:#1e1e2e;font-weight:600"
+                  onclick="bulkStartImport({{ case.id }})">
+            <i class="fa fa-bolt me-1"></i>Start Import
+          </button>
+        </div>
+
+        <!-- Progress section -->
+        <div id="bulkProgressSection" style="display:none">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span id="bulkStatusText" class="small text-muted">Processing…</span>
+            <span id="bulkCounter" class="small text-muted ms-auto"></span>
+          </div>
+          <div class="progress mb-3" style="height:6px;background:#313244">
+            <div id="bulkProgressBar" class="progress-bar"
+                 style="width:0%;background:#a6e3a1;transition:width .3s"></div>
+          </div>
+          <div id="bulkResultList" style="max-height:300px;overflow-y:auto;font-size:.78rem"></div>
+        </div>
+      </div>
+      <div class="modal-footer border-secondary py-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button id="bulkRefreshBtn" class="btn btn-sm btn-outline-secondary" style="display:none"
+                onclick="location.reload()">
+          <i class="fa fa-rotate-right me-1"></i>Refresh Page
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function bulkStartImport(caseId) {
+  const fileInput = document.getElementById('bulkZipFile');
+  const errDiv    = document.getElementById('bulkErr');
+  errDiv.style.display = 'none';
+
+  if (!fileInput.files.length) {
+    errDiv.style.display = 'block';
+    errDiv.textContent   = 'Please select a ZIP file.';
+    return;
+  }
+
+  const fd = new FormData();
+  fd.append('zip_file',     fileInput.files[0]);
+  fd.append('category',     document.getElementById('bulkCategory').value);
+  fd.append('investigator', document.getElementById('bulkInvestigator').value);
+  fd.append('notes_prefix', document.getElementById('bulkNotes').value);
+
+  document.getElementById('bulkFormSection').style.display     = 'none';
+  document.getElementById('bulkProgressSection').style.display = 'block';
+  document.getElementById('bulkStatusText').textContent        = 'Uploading…';
+
+  fetch(`/cases/${caseId}/evidence/bulk_import`, {method: 'POST', body: fd})
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        document.getElementById('bulkFormSection').style.display     = 'block';
+        document.getElementById('bulkProgressSection').style.display = 'none';
+        errDiv.style.display = 'block';
+        errDiv.textContent   = data.error;
+        return;
+      }
+      pollBulkStatus(caseId, data.task_id, data.total);
+    })
+    .catch(() => {
+      document.getElementById('bulkFormSection').style.display     = 'block';
+      document.getElementById('bulkProgressSection').style.display = 'none';
+      errDiv.style.display = 'block';
+      errDiv.textContent   = 'Upload failed. Check network connection.';
+    });
+}
+
+function pollBulkStatus(caseId, taskId, total) {
+  const bar      = document.getElementById('bulkProgressBar');
+  const counter  = document.getElementById('bulkCounter');
+  const statusTx = document.getElementById('bulkStatusText');
+  const list     = document.getElementById('bulkResultList');
+
+  fetch(`/cases/${caseId}/evidence/bulk_import/${taskId}`)
+    .then(r => r.json())
+    .then(task => {
+      const pct = total > 0 ? Math.round(task.processed / total * 100) : 0;
+      bar.style.width      = pct + '%';
+      counter.textContent  = `${task.processed} / ${total}`;
+      statusTx.textContent = task.status === 'running' ? 'Importing…' :
+                             task.status === 'done'    ? `Done — ${task.imported} imported, ${task.skipped} skipped` :
+                             `Error: ${task.errors[0]?.error || 'unknown'}`;
+
+      // Render file list
+      const rows = (task.files || []).map(f =>
+        `<div class="d-flex gap-2 align-items-center py-1 border-bottom border-secondary">
+          <i class="fa fa-check-circle text-success" style="font-size:.75rem;flex-shrink:0"></i>
+          <code style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</code>
+          <span class="text-muted" style="font-size:.7rem;flex-shrink:0">${f.ev_num}</span>
+        </div>`
+      );
+      const errs = (task.errors || []).map(e =>
+        `<div class="d-flex gap-2 align-items-center py-1 border-bottom border-secondary">
+          <i class="fa fa-circle-exclamation text-danger" style="font-size:.75rem;flex-shrink:0"></i>
+          <code style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.name}</code>
+          <span class="text-danger" style="font-size:.7rem;flex-shrink:0;max-width:200px;overflow:hidden;text-overflow:ellipsis">${e.error}</span>
+        </div>`
+      );
+      list.innerHTML = [...rows, ...errs].join('');
+
+      if (task.status === 'running') {
+        setTimeout(() => pollBulkStatus(caseId, taskId, total), 1000);
+      } else {
+        bar.style.width = '100%';
+        bar.style.background = task.status === 'done' ? '#a6e3a1' : '#f38ba8';
+        document.getElementById('bulkRefreshBtn').style.display = 'inline-block';
+      }
+    });
+}
+</script>
 
 <!-- Evidence Preview Modal -->
 <div class="modal fade" id="previewModal" tabindex="-1">
