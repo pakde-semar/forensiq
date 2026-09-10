@@ -31,6 +31,10 @@
         {% endfor %}
       </ul>
     </div>
+    {# Wiki notes #}
+    <a href="/cases/{{ case.id }}/notes" class="btn btn-sm btn-outline-secondary" target="_blank">
+      <i class="fa fa-book-open me-1"></i>Wiki
+    </a>
     {# Generate report #}
     <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalReport">
       <i class="fa fa-file-pdf me-1"></i>Generate Report

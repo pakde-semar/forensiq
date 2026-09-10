@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ note.title }} — {{ case.case_number }}</title>
+
+<link rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<link rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+<style>
+/* ── Reset & base ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: #1e1e2e; color: #cdd6f4; font-family: system-ui, sans-serif; }
+
+/* ── Layout ────────────────────────────────────────────────── */
+.vault { display: flex; height: 100vh; }
+
+/* ── Sidebar ───────────────────────────────────────────────── */
+.sidebar {
+  width: 240px; min-width: 180px; max-width: 320px;
+  background: #181825; border-right: 1px solid #313244;
+  display: flex; flex-direction: column;
+  overflow: hidden; flex-shrink: 0;
+  resize: horizontal;
+}
+.sidebar-top {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid #313244;
+  display: flex; align-items: center; gap: 8px;
+}
+.sidebar-top a {
+  color: #89b4fa; text-decoration: none; font-size: .78rem;
+  display: flex; align-items: center; gap: 4px; flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sidebar-top a:hover { color: #cdd6f4; }
+.btn-new {
+  background: none; border: 1px solid #45475a; color: #cdd6f4;
+  border-radius: 4px; cursor: pointer; font-size: .75rem; padding: 2px 7px;
+  white-space: nowrap;
+}
+.btn-new:hover { background: #313244; }
+
+.sidebar-section { padding: 8px 10px 4px; font-size: .68rem;
+  text-transform: uppercase; letter-spacing: .08em; color: #6c7086; }
+.note-list { flex: 1; overflow-y: auto; padding-bottom: 8px; }
+.note-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 12px; font-size: .82rem; color: #cdd6f4;
+  cursor: pointer; text-decoration: none; border-radius: 4px; margin: 1px 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.3;
+}
+.note-item:hover { background: #313244; }
+.note-item.active { background: #313244; color: #cba6f7; }
+.note-item .note-icon { font-size: .7rem; color: #6c7086; flex-shrink: 0; }
+.note-item .note-title { overflow: hidden; text-overflow: ellipsis; }
+
+.backlinks-section { border-top: 1px solid #313244; padding-bottom: 8px; }
+.bl-item { color: #89b4fa; }
+.bl-empty { padding: 4px 12px; font-size: .78rem; color: #6c7086; }
+
+/* ── Main editor area ──────────────────────────────────────── */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+/* ── Toolbar ───────────────────────────────────────────────── */
+.toolbar {
+  background: #181825; border-bottom: 1px solid #313244;
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+  flex-shrink: 0;
+}
+.title-input {
+  background: none; border: none; color: #cdd6f4; font-size: 1rem;
+  font-weight: 600; flex: 1; outline: none; min-width: 0;
+}
+.title-input:focus { background: #313244; border-radius: 4px; padding: 2px 6px; }
+.toolbar-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.save-status { font-size: .72rem; color: #6c7086; min-width: 80px; text-align: right; }
+.save-status.saving  { color: #f9e2af; }
+.save-status.saved   { color: #a6e3a1; }
+.save-status.error   { color: #f38ba8; }
+.tb-btn {
+  background: none; border: 1px solid #45475a; color: #cdd6f4;
+  border-radius: 4px; cursor: pointer; font-size: .78rem; padding: 3px 10px;
+}
+.tb-btn:hover { background: #313244; }
+.tb-btn.active { background: #313244; border-color: #cba6f7; color: #cba6f7; }
+
+/* mode toggle pills */
+.mode-pills { display: flex; border: 1px solid #45475a; border-radius: 4px; overflow: hidden; }
+.mode-pill {
+  background: none; border: none; color: #6c7086;
+  font-size: .72rem; padding: 3px 8px; cursor: pointer;
+}
+.mode-pill.active { background: #313244; color: #cdd6f4; }
+
+/* ── Pane area ─────────────────────────────────────────────── */
+.panes { flex: 1; display: flex; min-height: 0; }
+.editor-pane, .preview-pane {
+  flex: 1; overflow-y: auto; padding: 20px 28px;
+  min-width: 0;
+}
+.editor-pane { border-right: 1px solid #313244; }
+.editor-pane.hidden, .preview-pane.hidden { display: none; }
+
+/* textarea editor */
+#editor {
+  width: 100%; height: 100%; background: transparent;
+  border: none; outline: none; resize: none;
+  color: #cdd6f4; font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: .88rem; line-height: 1.7; tab-size: 4;
+}
+
+/* ── Markdown preview ──────────────────────────────────────── */
+.markdown-body {
+  color: #cdd6f4; line-height: 1.75; font-size: .92rem;
+  max-width: 760px;
+}
+.markdown-body h1 { color: #cba6f7; font-size: 1.6rem; border-bottom: 1px solid #313244; padding-bottom: .3em; margin: 1.2em 0 .6em; }
+.markdown-body h2 { color: #89b4fa; font-size: 1.25rem; border-bottom: 1px solid #313244; padding-bottom: .2em; margin: 1em 0 .5em; }
+.markdown-body h3 { color: #94e2d5; font-size: 1.05rem; margin: .9em 0 .4em; }
+.markdown-body h4, .markdown-body h5, .markdown-body h6 { color: #a6e3a1; margin: .8em 0 .3em; }
+.markdown-body p { margin: .6em 0; }
+.markdown-body a { color: #89b4fa; text-decoration: none; }
+.markdown-body a:hover { text-decoration: underline; }
+.markdown-body a.wiki-missing { color: #f38ba8; border-bottom: 1px dashed #f38ba8; }
+.markdown-body code { background: #313244; color: #f38ba8; padding: .1em .35em; border-radius: 3px; font-size: .85em; }
+.markdown-body pre { background: #181825; border: 1px solid #313244; border-radius: 6px; padding: 12px 16px; overflow-x: auto; margin: .8em 0; }
+.markdown-body pre code { background: none; padding: 0; color: inherit; }
+.markdown-body blockquote { border-left: 3px solid #cba6f7; margin: .6em 0; padding: 4px 12px; color: #a6adc8; }
+.markdown-body ul, .markdown-body ol { padding-left: 1.5em; margin: .4em 0; }
+.markdown-body li { margin: .2em 0; }
+.markdown-body table { border-collapse: collapse; width: 100%; margin: .8em 0; }
+.markdown-body th { background: #313244; padding: 6px 12px; border: 1px solid #45475a; text-align: left; color: #cba6f7; }
+.markdown-body td { padding: 5px 12px; border: 1px solid #45475a; }
+.markdown-body tr:nth-child(even) { background: #1e1e2e; }
+.markdown-body hr { border: none; border-top: 1px solid #45475a; margin: 1em 0; }
+.markdown-body input[type="checkbox"] { margin-right: 6px; }
+.markdown-body mark { background: #f9e2af; color: #1e1e2e; border-radius: 2px; padding: 0 2px; }
+.markdown-body strong { color: #f5e0dc; }
+.markdown-body em { color: #f5c2e7; }
+
+/* wiki link */
+a.wiki-link { color: #cba6f7; }
+a.wiki-link:hover { text-decoration: underline; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #45475a; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="vault">
+
+  <!-- ── Sidebar ───────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <a href="/cases/{{ case.id }}">
+        <i class="fa fa-arrow-left"></i>
+        <span>{{ case.case_number }}</span>
+      </a>
+      <button class="btn-new" onclick="newNote()" title="New note (Ctrl+N)">
+        <i class="fa fa-plus"></i>
+      </button>
+    </div>
+
+    <div class="sidebar-section">Notes</div>
+    <div class="note-list" id="note-list">
+      {% for n in all_notes %}
+      <a class="note-item {% if n.id == note.id %}active{% endif %}"
+         href="/cases/{{ case.id }}/notes/{{ n.id }}"
+         title="{{ n.title }}">
+        <i class="fa fa-file-alt note-icon"></i>
+        <span class="note-title">{{ n.title }}</span>
+      </a>
+      {% endfor %}
+    </div>
+
+    <div class="backlinks-section">
+      <div class="sidebar-section">Backlinks</div>
+      {% if backlinks %}
+        {% for bl in backlinks %}
+        <a class="note-item bl-item" href="/cases/{{ case.id }}/notes/{{ bl.id }}">
+          <i class="fa fa-link note-icon"></i>
+          <span class="note-title">{{ bl.title }}</span>
+        </a>
+        {% endfor %}
+      {% else %}
+        <div class="bl-empty">No backlinks</div>
+      {% endif %}
+    </div>
+  </aside>
+
+  <!-- ── Main ──────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <input type="text" id="note-title" class="title-input"
+             value="{{ note.title }}" placeholder="Note title…"
+             title="Rename note (Enter to save)">
+
+      <div class="toolbar-right">
+        <span id="save-status" class="save-status">—</span>
+
+        <div class="mode-pills">
+          <button class="mode-pill active" id="pill-split" onclick="setMode('split')">Split</button>
+          <button class="mode-pill" id="pill-edit"  onclick="setMode('edit')">Edit</button>
+          <button class="mode-pill" id="pill-preview" onclick="setMode('preview')">Preview</button>
+        </div>
+
+        <button class="tb-btn" onclick="saveNote()" title="Save (Ctrl+S)">
+          <i class="fa fa-floppy-disk me-1"></i>Save
+        </button>
+        <button class="tb-btn" onclick="deleteNote()" title="Delete this note">
+          <i class="fa fa-trash"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Panes -->
+    <div class="panes">
+      <div class="editor-pane" id="editor-pane">
+        <textarea id="editor" spellcheck="false"
+                  placeholder="Start writing… supports Markdown and [[Wiki Links]]">{{ note.content | e }}</textarea>
+      </div>
+      <div class="preview-pane" id="preview-pane">
+        <div class="markdown-body" id="preview-body"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────
+const CASE_ID  = {{ case.id }};
+const NOTE_ID  = {{ note.id }};
+const NOTES    = {{ notes_meta | tojson }};  // [{id, title}, ...]
+let   _saveTimer   = null;
+let   _mode        = 'split';
+let   _dirty       = false;
+
+// ── Marked config ──────────────────────────────────────────────────
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+  highlight: (code, lang) => {
+    if (lang && hljs.getLanguage(lang)) {
+      try { return hljs.highlight(code, {language: lang}).value; } catch {}
+    }
+    return hljs.highlightAuto(code).value;
+  }
+});
+
+// Custom renderer for task lists and wiki links
+const renderer = new marked.Renderer();
+const origListitem = renderer.listitem.bind(renderer);
+renderer.listitem = (text, task, checked) => {
+  if (task) {
+    const cb = `<input type="checkbox" disabled ${checked ? 'checked' : ''}> `;
+    return `<li>${cb}${text.replace(/^<p>/, '').replace(/<\/p>$/, '')}</li>`;
+  }
+  return origListitem(text, task, checked);
+};
+marked.use({ renderer });
+
+// ── Wiki link preprocessing ─────────────────────────────────────────
+function noteByTitle(title) {
+  return NOTES.find(n => n.title.toLowerCase() === title.trim().toLowerCase());
+}
+function processWikiLinks(md) {
+  return md.replace(/\[\[([^\]]+)\]\]/g, (_, title) => {
+    const found = noteByTitle(title);
+    if (found) {
+      return `[${title}](/cases/${CASE_ID}/notes/${found.id})`;
+    }
+    return `[${title}](/cases/${CASE_ID}/notes/new?title=${encodeURIComponent(title)})`;
+  });
+}
+
+// ── Render ─────────────────────────────────────────────────────────
+function render() {
+  const raw = document.getElementById('editor').value;
+  const processed = processWikiLinks(raw);
+  const html = marked.parse(processed);
+  const body = document.getElementById('preview-body');
+  body.innerHTML = html;
+
+  // Style wiki-missing links
+  body.querySelectorAll('a[href*="/notes/new?"]').forEach(a => {
+    a.classList.add('wiki-missing');
+    a.title = 'Note does not exist — click to create';
+  });
+  body.querySelectorAll('a[href*="/notes/"]').forEach(a => {
+    if (!a.href.includes('/new?')) a.classList.add('wiki-link');
+  });
+
+  // Re-run highlight on pre>code blocks
+  body.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+}
+
+// ── Auto-save ──────────────────────────────────────────────────────
+function scheduleAutoSave() {
+  _dirty = true;
+  setStatus('saving', 'Unsaved…');
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(saveNote, 1500);
+  render();
+}
+
+async function saveNote() {
+  clearTimeout(_saveTimer);
+  setStatus('saving', 'Saving…');
+  try {
+    const r = await fetch(`/cases/${CASE_ID}/notes/${NOTE_ID}/save`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        title:   document.getElementById('note-title').value,
+        content: document.getElementById('editor').value,
+      }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      setStatus('saved', `Saved ${d.updated_at}`);
+      _dirty = false;
+      // Update sidebar title if changed
+      const active = document.querySelector('.note-item.active .note-title');
+      if (active) active.textContent = document.getElementById('note-title').value;
+    } else {
+      setStatus('error', 'Error saving');
+    }
+  } catch {
+    setStatus('error', 'Network error');
+  }
+}
+
+function setStatus(cls, msg) {
+  const el = document.getElementById('save-status');
+  el.className = 'save-status ' + cls;
+  el.textContent = msg;
+}
+
+// ── Note title rename ──────────────────────────────────────────────
+document.getElementById('note-title').addEventListener('input', () => {
+  _dirty = true;
+  setStatus('saving', 'Unsaved…');
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(saveNote, 1500);
+});
+document.getElementById('note-title').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); saveNote(); }
+});
+
+// ── Mode switcher ──────────────────────────────────────────────────
+function setMode(mode) {
+  _mode = mode;
+  const ep = document.getElementById('editor-pane');
+  const pp = document.getElementById('preview-pane');
+  ['split','edit','preview'].forEach(m =>
+    document.getElementById('pill-'+m).classList.remove('active'));
+  document.getElementById('pill-'+mode).classList.add('active');
+
+  ep.classList.toggle('hidden', mode === 'preview');
+  pp.classList.toggle('hidden', mode === 'edit');
+  ep.style.borderRight = mode === 'edit' ? 'none' : '';
+  if (mode !== 'edit') render();
+}
+
+// ── New note ───────────────────────────────────────────────────────
+function newNote() {
+  const title = prompt('Note title:', 'Untitled');
+  if (title === null) return;
+  window.location = `/cases/${CASE_ID}/notes/new?title=${encodeURIComponent(title)}`;
+}
+
+// ── Delete note ────────────────────────────────────────────────────
+async function deleteNote() {
+  if (!confirm(`Delete "${document.getElementById('note-title').value}"?`)) return;
+  const form = document.createElement('form');
+  form.method = 'post';
+  form.action = `/cases/${CASE_ID}/notes/${NOTE_ID}/delete`;
+  document.body.append(form);
+  form.submit();
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault(); saveNote();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+    e.preventDefault();
+    setMode(_mode === 'preview' ? 'split' : 'preview');
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+    e.preventDefault(); newNote();
+  }
+});
+
+// Tab indent in editor
+document.getElementById('editor').addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const ta  = e.target;
+    const s   = ta.selectionStart;
+    const end = ta.selectionEnd;
+    ta.value = ta.value.substring(0, s) + '    ' + ta.value.substring(end);
+    ta.selectionStart = ta.selectionEnd = s + 4;
+  }
+});
+
+// ── Unsaved warning ────────────────────────────────────────────────
+window.addEventListener('beforeunload', e => {
+  if (_dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// ── Init ───────────────────────────────────────────────────────────
+render();
+setStatus('saved', 'Ready');
+document.getElementById('editor').addEventListener('input', scheduleAutoSave);
+</script>
+</body>
+</html>

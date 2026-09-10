@@ -102,6 +102,8 @@ class Case(Base):
                                        order_by="HashVerifyBatch.run_at.desc()")
     time_entries        = relationship("TimeEntry",        back_populates="case", cascade="all, delete-orphan",
                                        order_by="TimeEntry.clock_in.desc()")
+    notes_wiki          = relationship("CaseNote",         back_populates="case", cascade="all, delete-orphan",
+                                       order_by="CaseNote.updated_at.desc()")
 
 
 class Investigator(Base):
@@ -188,6 +190,19 @@ class CoCEntry(Base):
     notes       = Column(Text, default="")
 
     evidence = relationship("Evidence", back_populates="coc_entries")
+
+
+class CaseNote(Base):
+    __tablename__ = "case_notes"
+
+    id         = Column(Integer, primary_key=True)
+    case_id    = Column(Integer, ForeignKey("cases.id"), nullable=False)
+    title      = Column(String(255), nullable=False, default="Untitled")
+    content    = Column(Text, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    case = relationship("Case", back_populates="notes_wiki")
 
 
 class TimeEntry(Base):

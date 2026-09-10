@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from .database import engine, get_db
 from . import models
 from .templates_env import templates
-from .routers import agency, cases, evidence, reports, integrations, lookup, pipeline, coc, export, yara, hashverify, timeclock
+from .routers import agency, cases, evidence, reports, integrations, lookup, pipeline, coc, export, yara, hashverify, timeclock, notes
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -26,6 +26,7 @@ app.include_router(export.router)
 app.include_router(yara.router)
 app.include_router(hashverify.router)
 app.include_router(timeclock.router)
+app.include_router(notes.router)
 
 
 @app.get("/")
