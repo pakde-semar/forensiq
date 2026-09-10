@@ -1,24 +1,193 @@
 {% extends "base.html" %}
 {% block title %}Cases — ForensiQ{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h4 class="mb-0"><i class="fa fa-folder-open me-2"></i>Cases</h4>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0"><i class="fa fa-folder-open me-2"></i>Cases
+    <small class="text-muted fw-normal ms-2" style="font-size:.85rem">
+      {{ cases | length }}{% if active_filters %} / {{ total_count }}{% endif %} case{{ "s" if cases | length != 1 else "" }}
+    </small>
+  </h4>
   <a href="/cases/new" class="btn btn-sm" style="background:#00bfae;color:#000;font-weight:600;">
-    <i class="fa fa-plus me-1"></i> New Case
+    <i class="fa fa-plus me-1"></i>New Case
   </a>
 </div>
 
+{# ── Filter bar ── #}
+<form method="get" action="/cases/" id="filterForm">
+  <div class="card mb-3">
+    <div class="card-body py-2 px-3">
+      <div class="row g-2 align-items-end">
+
+        {# Search #}
+        <div class="col-md-4">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text"><i class="fa fa-magnifying-glass"></i></span>
+            <input type="text" id="searchInput" name="q" value="{{ filters.q }}"
+                   class="form-control" placeholder="Search case #, name, notes, hash…"
+                   autocomplete="off">
+            {% if filters.q %}
+            <button type="button" class="btn btn-outline-secondary"
+                    onclick="document.getElementById('searchInput').value='';document.getElementById('filterForm').submit()">
+              <i class="fa fa-xmark"></i>
+            </button>
+            {% endif %}
+          </div>
+        </div>
+
+        {# Status — multi #}
+        <div class="col-md-2">
+          <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100 text-start"
+                    type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+              Status
+              {% if filters.status %}
+              <span class="badge bg-info ms-1">{{ filters.status | length }}</span>
+              {% endif %}
+            </button>
+            <ul class="dropdown-menu p-2" style="min-width:160px;">
+              {% for s in ALL_STATUSES %}
+              <li>
+                <label class="dropdown-item py-1 px-2 d-flex align-items-center gap-2 rounded">
+                  <input type="checkbox" name="status" value="{{ s }}"
+                         {% if s in filters.status %}checked{% endif %}
+                         onchange="document.getElementById('filterForm').submit()">
+                  {{ s }}
+                </label>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+
+        {# Priority — multi #}
+        <div class="col-md-2">
+          <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100 text-start"
+                    type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+              Priority
+              {% if filters.priority %}
+              <span class="badge bg-info ms-1">{{ filters.priority | length }}</span>
+              {% endif %}
+            </button>
+            <ul class="dropdown-menu p-2" style="min-width:160px;">
+              {% for p in ALL_PRIORITIES %}
+              <li>
+                <label class="dropdown-item py-1 px-2 d-flex align-items-center gap-2 rounded">
+                  <input type="checkbox" name="priority" value="{{ p }}"
+                         {% if p in filters.priority %}checked{% endif %}
+                         onchange="document.getElementById('filterForm').submit()">
+                  {{ p }}
+                </label>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+
+        {# Type #}
+        <div class="col-md-2">
+          <select name="case_type" class="form-select form-select-sm"
+                  onchange="document.getElementById('filterForm').submit()">
+            <option value="">All Types</option>
+            {% for t in CASE_TYPES %}
+            <option value="{{ t }}" {% if filters.case_type == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {# Sort #}
+        <div class="col-md-1">
+          <select name="sort" class="form-select form-select-sm"
+                  onchange="document.getElementById('filterForm').submit()">
+            <option value="newest"   {% if filters.sort=="newest"   %}selected{% endif %}>Newest</option>
+            <option value="oldest"   {% if filters.sort=="oldest"   %}selected{% endif %}>Oldest</option>
+            <option value="updated"  {% if filters.sort=="updated"  %}selected{% endif %}>Updated</option>
+            <option value="priority" {% if filters.sort=="priority" %}selected{% endif %}>Priority</option>
+            <option value="name"     {% if filters.sort=="name"     %}selected{% endif %}>Name</option>
+          </select>
+        </div>
+
+        {# Date range toggle #}
+        <div class="col-md-1 text-end">
+          <button class="btn btn-sm btn-outline-secondary" type="button"
+                  data-bs-toggle="collapse" data-bs-target="#dateFilter">
+            <i class="fa fa-calendar"></i>
+          </button>
+          {% if active_filters %}
+          <a href="/cases/" class="btn btn-sm btn-outline-danger ms-1" title="Clear all filters">
+            <i class="fa fa-xmark"></i>
+          </a>
+          {% endif %}
+        </div>
+
+      </div>
+
+      {# Date range (collapsed by default) #}
+      <div class="collapse {% if filters.date_from or filters.date_to %}show{% endif %}" id="dateFilter">
+        <div class="row g-2 mt-1">
+          <div class="col-auto d-flex align-items-center gap-2">
+            <label class="small text-muted mb-0">From</label>
+            <input type="date" name="date_from" value="{{ filters.date_from }}"
+                   class="form-control form-control-sm" style="width:150px;"
+                   onchange="document.getElementById('filterForm').submit()">
+          </div>
+          <div class="col-auto d-flex align-items-center gap-2">
+            <label class="small text-muted mb-0">To</label>
+            <input type="date" name="date_to" value="{{ filters.date_to }}"
+                   class="form-control form-control-sm" style="width:150px;"
+                   onchange="document.getElementById('filterForm').submit()">
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</form>
+
+{# ── Active filter badges ── #}
+{% if active_filters %}
+<div class="d-flex flex-wrap gap-1 mb-2">
+  {% if filters.q %}
+  <span class="badge bg-secondary">
+    <i class="fa fa-magnifying-glass me-1"></i>{{ filters.q }}
+  </span>
+  {% endif %}
+  {% for s in filters.status %}
+  <span class="badge bg-secondary">Status: {{ s }}</span>
+  {% endfor %}
+  {% for p in filters.priority %}
+  <span class="badge bg-secondary">Priority: {{ p }}</span>
+  {% endfor %}
+  {% if filters.case_type %}
+  <span class="badge bg-secondary">Type: {{ filters.case_type }}</span>
+  {% endif %}
+  {% if filters.date_from %}
+  <span class="badge bg-secondary">From: {{ filters.date_from }}</span>
+  {% endif %}
+  {% if filters.date_to %}
+  <span class="badge bg-secondary">To: {{ filters.date_to }}</span>
+  {% endif %}
+</div>
+{% endif %}
+
+{# ── Results table ── #}
 {% if not cases %}
 <div class="card text-center py-5">
   <div class="card-body">
+    {% if active_filters %}
+    <i class="fa fa-magnifying-glass fa-2x mb-3 text-muted"></i>
+    <p class="text-muted">No cases match your filters. <a href="/cases/">Clear filters</a></p>
+    {% else %}
     <i class="fa fa-folder-open fa-3x mb-3" style="color:#30363d;"></i>
     <p class="text-muted">No cases yet. <a href="/cases/new">Create the first one.</a></p>
+    {% endif %}
   </div>
 </div>
 {% else %}
 <div class="card">
   <div class="table-responsive">
-    <table class="table table-hover mb-0">
+    <table class="table table-hover mb-0" id="caseTable">
       <thead>
         <tr>
           <th>Case #</th>
@@ -27,25 +196,47 @@
           <th>Priority</th>
           <th>Status</th>
           <th>Evidence</th>
+          <th>Investigator</th>
           <th>Created</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         {% for c in cases %}
-        <tr>
-          <td><code>{{ c.case_number }}</code></td>
-          <td><strong>{{ c.name }}</strong></td>
+        <tr class="case-row" data-href="/cases/{{ c.id }}">
+          <td><code>{{ c.case_number | highlight(filters.q) }}</code></td>
+          <td>
+            <strong>{{ c.name | highlight(filters.q) }}</strong>
+            {% if c.flowintel_case_id or c.misp_event_id %}
+            <div class="mt-1">
+              {% if c.flowintel_case_id %}
+              <span class="badge bg-success" style="font-size:.62rem">FT</span>
+              {% endif %}
+              {% if c.misp_event_id %}
+              <span class="badge bg-danger" style="font-size:.62rem">MISP</span>
+              {% endif %}
+            </div>
+            {% endif %}
+          </td>
           <td><small>{{ c.case_type or "—" }}</small></td>
           <td>
             <span class="badge badge-priority-{{ c.priority | lower }}">{{ c.priority }}</span>
           </td>
           <td>
-            <span class="status-{{ c.status | lower }}">
+            <span class="status-{{ c.status | lower | replace(' ','') }}">
               <i class="fa fa-circle" style="font-size:.6rem;"></i> {{ c.status }}
             </span>
           </td>
           <td>{{ c.evidence | length }}</td>
+          <td>
+            <small>
+              {% for inv in c.investigators if inv.is_lead %}
+              {{ inv.name }}
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endfor %}
+            </small>
+          </td>
           <td><small>{{ c.created_at.strftime("%Y-%m-%d") }}</small></td>
           <td>
             <a href="/cases/{{ c.id }}" class="btn btn-sm btn-outline-secondary">
@@ -59,4 +250,28 @@
   </div>
 </div>
 {% endif %}
+
+<script>
+  // Press / to focus search
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+      e.preventDefault();
+      document.getElementById('searchInput')?.focus();
+    }
+  });
+
+  // Submit on Enter in search box
+  document.getElementById('searchInput')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('filterForm').submit();
+  });
+
+  // Click anywhere on row to open case
+  document.querySelectorAll('.case-row').forEach(row => {
+    row.style.cursor = 'pointer';
+    row.addEventListener('click', e => {
+      if (e.target.closest('a,button')) return;
+      window.location = row.dataset.href;
+    });
+  });
+</script>
 {% endblock %}

@@ -63,8 +63,19 @@
       </a>
     </li>
   </ul>
-  <div class="mt-auto p-3" style="font-size:.75rem;color:#6e7681;">
-    ForensiQ v0.1
+  <div class="mt-auto p-3">
+    {# Quick search #}
+    <div style="position:relative;">
+      <input type="text" id="quickSearch" placeholder="Quick search… (/)"
+             class="form-control form-control-sm"
+             style="background:#21262d;border-color:#30363d;color:#e6edf3;font-size:.8rem;"
+             autocomplete="off">
+      <div id="quickSearchResults"
+           style="display:none;position:absolute;bottom:38px;left:0;right:0;
+                  background:#1c2128;border:1px solid #30363d;border-radius:6px;
+                  z-index:999;max-height:260px;overflow-y:auto;font-size:.82rem;"></div>
+    </div>
+    <div class="mt-2" style="font-size:.72rem;color:#6e7681;">ForensiQ v0.1</div>
   </div>
 </nav>
 
@@ -74,5 +85,73 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 {% block scripts %}{% endblock %}
+
+<style>
+  mark.search-hl {
+    background: #ffd700;
+    color: #000;
+    border-radius: 2px;
+    padding: 0 1px;
+  }
+</style>
+
+<script>
+  // ── Quick search (sidebar) ───────────────────────────────────────────────
+  const _qs  = document.getElementById('quickSearch');
+  const _qsr = document.getElementById('quickSearchResults');
+  let _qsTimer = null;
+
+  const TYPE_ICON = { case: 'fa-folder-open', evidence: 'fa-box-archive' };
+  const TYPE_COLOR = { case: '#00bfae', evidence: '#f0883e' };
+
+  _qs?.addEventListener('input', () => {
+    clearTimeout(_qsTimer);
+    const q = _qs.value.trim();
+    if (q.length < 2) { _qsr.style.display = 'none'; return; }
+    _qsTimer = setTimeout(async () => {
+      try {
+        const r = await fetch(`/cases/search?q=${encodeURIComponent(q)}`);
+        const d = await r.json();
+        if (!d.results || !d.results.length) {
+          _qsr.innerHTML = '<div style="padding:8px 12px;color:#8b949e">No results</div>';
+          _qsr.style.display = 'block';
+          return;
+        }
+        _qsr.innerHTML = d.results.map(item => `
+          <a href="${item.url}" style="display:block;padding:7px 12px;color:#e6edf3;
+             text-decoration:none;border-bottom:1px solid #21262d;"
+             onmouseover="this.style.background='#21262d'"
+             onmouseout="this.style.background=''">
+            <span style="color:${TYPE_COLOR[item.type]};font-size:.75rem;">
+              <i class="fa ${TYPE_ICON[item.type]} me-1"></i>${item.type}
+            </span><br>
+            <span style="font-weight:600">${item.label}</span>
+            <span style="color:#8b949e;font-size:.75rem;"> — ${item.sub}</span>
+          </a>`).join('');
+        _qsr.style.display = 'block';
+      } catch(e) {}
+    }, 280);
+  });
+
+  _qs?.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { _qsr.style.display = 'none'; _qs.blur(); }
+    if (e.key === 'Enter' && _qs.value.trim().length >= 2) {
+      window.location = `/cases/?q=${encodeURIComponent(_qs.value.trim())}`;
+    }
+  });
+
+  document.addEventListener('click', e => {
+    if (!_qs?.contains(e.target) && !_qsr?.contains(e.target))
+      _qsr.style.display = 'none';
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && document.activeElement !== _qs
+        && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) {
+      e.preventDefault();
+      _qs?.focus();
+    }
+  });
+</script>
 </body>
 </html>

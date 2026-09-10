@@ -1,10 +1,10 @@
 from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from .database import engine, get_db
 from . import models
+from .templates_env import templates
 from .routers import agency, cases, evidence, reports, integrations, lookup, pipeline, coc
 
 models.Base.metadata.create_all(bind=engine)
@@ -13,7 +13,6 @@ app = FastAPI(title="ForensiQ", version="0.1.0")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-templates = Jinja2Templates(directory="app/templates")
 
 app.include_router(agency.router)
 app.include_router(cases.router)

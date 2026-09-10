@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, Request, Form
-from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
+from fastapi import APIRouter, Depends, Request, Form, Query
+from fastapi.responses import RedirectResponse, JSONResponse
+from ..templates_env import templates as _shared_templates
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, date
+from typing import Optional
 from ..database import get_db
 from .. import models
 from ..core import audit
@@ -10,7 +12,7 @@ from ..core.coc import generate_case_number
 from ..routers.agency import get_or_create_agency
 
 router = APIRouter(prefix="/cases", tags=["cases"])
-templates = Jinja2Templates(directory="app/templates")
+templates = _shared_templates
 
 CASE_TYPES = [
     "Cyber Incident", "Digital Forensics", "OSINT Investigation",
@@ -18,11 +20,124 @@ CASE_TYPES = [
     "Malware Analysis", "Threat Hunting", "Other",
 ]
 
+_SORT_FIELDS = {
+    "newest":   models.Case.created_at.desc(),
+    "oldest":   models.Case.created_at.asc(),
+    "updated":  models.Case.updated_at.desc(),
+    "priority": models.Case.priority.desc(),
+    "name":     models.Case.name.asc(),
+}
+
 
 @router.get("/")
-def case_list(request: Request, db: Session = Depends(get_db)):
-    cases = db.query(models.Case).order_by(models.Case.created_at.desc()).all()
-    return templates.TemplateResponse(request, "cases/list.html", {"cases": cases})
+def case_list(
+    request:    Request,
+    q:          str           = Query(""),
+    status:     list[str]     = Query([]),
+    priority:   list[str]     = Query([]),
+    case_type:  str           = Query(""),
+    date_from:  Optional[date] = Query(None),
+    date_to:    Optional[date] = Query(None),
+    sort:       str           = Query("newest"),
+    db:         Session       = Depends(get_db),
+):
+    query = db.query(models.Case)
+
+    # Full-text search across case_number, name, notes and evidence filenames
+    if q.strip():
+        term = f"%{q.strip()}%"
+        ev_sub = (
+            db.query(models.Evidence.case_id)
+            .filter(or_(
+                models.Evidence.file_name.ilike(term),
+                models.Evidence.notes.ilike(term),
+                models.Evidence.md5.ilike(term),
+                models.Evidence.sha256.ilike(term),
+            ))
+            .subquery()
+        )
+        query = query.filter(or_(
+            models.Case.case_number.ilike(term),
+            models.Case.name.ilike(term),
+            models.Case.notes.ilike(term),
+            models.Case.id.in_(ev_sub),
+        ))
+
+    if status:
+        query = query.filter(models.Case.status.in_(status))
+    if priority:
+        query = query.filter(models.Case.priority.in_(priority))
+    if case_type:
+        query = query.filter(models.Case.case_type == case_type)
+    if date_from:
+        query = query.filter(models.Case.created_at >= datetime.combine(date_from, datetime.min.time()))
+    if date_to:
+        query = query.filter(models.Case.created_at <= datetime.combine(date_to, datetime.max.time()))
+
+    order = _SORT_FIELDS.get(sort, models.Case.created_at.desc())
+    cases = query.order_by(order).all()
+
+    filters = {
+        "q": q, "status": status, "priority": priority,
+        "case_type": case_type,
+        "date_from": date_from.isoformat() if date_from else "",
+        "date_to":   date_to.isoformat()   if date_to   else "",
+        "sort": sort,
+    }
+    active_filters = any([q.strip(), status, priority, case_type, date_from, date_to])
+
+    return templates.TemplateResponse(request, "cases/list.html", {
+        "cases":          cases,
+        "filters":        filters,
+        "active_filters": active_filters,
+        "total_count":    db.query(models.Case).count(),
+        "CASE_TYPES":     CASE_TYPES,
+        "ALL_STATUSES":   [e.value for e in models.CaseStatus],
+        "ALL_PRIORITIES": [e.value for e in models.CasePriority],
+    })
+
+
+@router.get("/search")
+def global_search(q: str = Query(""), db: Session = Depends(get_db)):
+    """JSON search across cases + evidence — used by the navbar quick-search."""
+    if not q.strip() or len(q.strip()) < 2:
+        return JSONResponse({"results": []})
+    term = f"%{q.strip()}%"
+
+    cases = (
+        db.query(models.Case)
+        .filter(or_(
+            models.Case.case_number.ilike(term),
+            models.Case.name.ilike(term),
+        ))
+        .limit(6).all()
+    )
+    evidence = (
+        db.query(models.Evidence)
+        .filter(or_(
+            models.Evidence.file_name.ilike(term),
+            models.Evidence.md5.ilike(term),
+            models.Evidence.sha256.ilike(term),
+        ))
+        .limit(6).all()
+    )
+
+    results = []
+    for c in cases:
+        results.append({
+            "type": "case", "id": c.id,
+            "label": f"{c.case_number} — {c.name}",
+            "sub":   c.status,
+            "url":   f"/cases/{c.id}",
+        })
+    for ev in evidence:
+        results.append({
+            "type":  "evidence", "id": ev.id,
+            "label": ev.file_name,
+            "sub":   f"{ev.evidence_number} · case #{ev.case_id}",
+            "url":   f"/cases/{ev.case_id}#tab-evidence",
+        })
+    return JSONResponse({"results": results})
 
 
 @router.get("/new")

@@ -6,7 +6,7 @@ import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import JSONResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
+from ..templates_env import templates as _shared_templates
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -16,7 +16,7 @@ from ..core import pipeline as engine
 log = logging.getLogger(__name__)
 
 router     = APIRouter(prefix="/cases/{case_id}/pipeline", tags=["pipeline"])
-templates  = Jinja2Templates(directory="app/templates")
+templates  = _shared_templates
 
 
 @router.post("/run")
