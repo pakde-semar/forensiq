@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Investigators — ForensiQ{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h5 class="mb-0"><i class="fa fa-users me-2"></i>Investigators</h5>
+  <span class="text-muted small">{{ investigators | length }} investigator{{ 's' if investigators | length != 1 }}</span>
+</div>
+
+{% if not investigators %}
+<div class="card text-center py-5 text-muted">
+  <i class="fa fa-users fa-2x mb-3 opacity-25"></i>
+  <p>No investigators yet. Add investigators to cases to see workload data here.</p>
+</div>
+{% else %}
+
+<!-- Summary bar -->
+<div class="row g-3 mb-4">
+  {% set total_hrs = investigators | sum(attribute='total_hours') %}
+  {% set total_cases = investigators | map(attribute='case_count') | sum %}
+  <div class="col-6 col-md-3">
+    <div class="card text-center py-3">
+      <div style="font-size:1.8rem;font-weight:700;color:#cba6f7">{{ investigators | length }}</div>
+      <div class="text-muted small">Investigators</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center py-3">
+      <div style="font-size:1.8rem;font-weight:700;color:#a6e3a1">{{ total_hrs | round(1) }}</div>
+      <div class="text-muted small">Total Hours Logged</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center py-3">
+      <div style="font-size:1.8rem;font-weight:700;color:#89b4fa">{{ investigators | selectattr('is_lead_any') | list | length }}</div>
+      <div class="text-muted small">Lead Investigators</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center py-3">
+      {% if investigators %}
+        {% set top = investigators[0] %}
+        <div style="font-size:1rem;font-weight:700;color:#f9e2af;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 8px">{{ top.name }}</div>
+        <div class="text-muted small">Most Active ({{ top.total_hours }}h)</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Investigator cards -->
+<div class="row g-3">
+  {% for inv in investigators %}
+  <div class="col-md-6 col-xl-4">
+    <a href="/investigators/{{ inv.slug }}" class="text-decoration-none">
+      <div class="card h-100 p-3" style="cursor:pointer;transition:border-color .15s"
+           onmouseover="this.style.borderColor='#45475a'" onmouseout="this.style.borderColor=''">
+
+        <div class="d-flex align-items-start gap-3">
+          <!-- Avatar -->
+          <div style="width:42px;height:42px;border-radius:50%;background:#cba6f722;border:2px solid #cba6f7;
+                      display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.1rem;color:#cba6f7;font-weight:700">
+            {{ inv.name[0] | upper }}
+          </div>
+
+          <!-- Info -->
+          <div style="flex:1;min-width:0">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span style="font-weight:600;color:#cdd6f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                {{ inv.name }}
+              </span>
+              {% if inv.is_lead_any %}
+              <span class="badge" style="background:#f9e2af22;color:#f9e2af;border:1px solid #f9e2af55;font-size:.6rem">LEAD</span>
+              {% endif %}
+            </div>
+            <div class="text-muted" style="font-size:.75rem;margin-top:2px">
+              {{ inv.case_count }} case{{ 's' if inv.case_count != 1 }} &nbsp;·&nbsp;
+              {{ inv.total_hours }} hrs logged
+            </div>
+          </div>
+
+          <i class="fa fa-chevron-right text-muted" style="font-size:.75rem;margin-top:4px;flex-shrink:0"></i>
+        </div>
+
+        <!-- Mini hours bar -->
+        {% if inv.total_hours > 0 %}
+        {% set pct = [inv.total_hours / [investigators[0].total_hours, 0.1] | max * 100, 100] | min %}
+        <div style="margin-top:12px;background:#313244;border-radius:3px;height:4px;overflow:hidden">
+          <div style="height:100%;width:{{ pct | round(1) }}%;background:#a6e3a1;border-radius:3px;transition:width .3s"></div>
+        </div>
+        <div class="text-muted" style="font-size:.68rem;margin-top:4px;text-align:right">
+          {{ inv.total_hours }}h / {{ investigators[0].total_hours }}h max
+        </div>
+        {% endif %}
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

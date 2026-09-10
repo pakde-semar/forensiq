@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}{{ inv_name }} — Investigator — ForensiQ{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <a href="/investigators" class="btn btn-sm btn-outline-secondary py-0">
+    <i class="fa fa-arrow-left me-1"></i>All Investigators
+  </a>
+  <div class="d-flex align-items-center gap-3">
+    <div id="inv-avatar"
+         style="width:44px;height:44px;border-radius:50%;background:#cba6f722;border:2px solid #cba6f7;
+                display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:#cba6f7;font-weight:700">
+      {{ inv_name[0] | upper }}
+    </div>
+    <div>
+      <h5 class="mb-0" style="color:#cdd6f4">{{ inv_name }}</h5>
+      <div id="inv-subtitle" class="text-muted small">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Stat cards -->
+<div class="row g-3 mb-4" id="inv-stats">
+  <div class="col-6 col-md-3">
+    <div class="card text-center py-3">
+      <div id="st-hours" style="font-size:1.8rem;font-weight:700;color:#a6e3a1">—</div>
+      <div class="text-muted small">Total Hours</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center py-3">
+      <div id="st-cases" style="font-size:1.8rem;font-weight:700;color:#89b4fa">—</div>
+      <div class="text-muted small">Cases</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center py-3">
+      <div id="st-avg" style="font-size:1.8rem;font-weight:700;color:#cba6f7">—</div>
+      <div class="text-muted small">Avg hrs/week</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center py-3">
+      <div id="st-active" style="font-size:1.8rem;font-weight:700;color:#f9e2af">—</div>
+      <div class="text-muted small">Active Days (91d)</div>
+    </div>
+  </div>
+</div>
+
+<!-- Heatmap -->
+<div class="card mb-3">
+  <div class="card-header small d-flex justify-content-between align-items-center">
+    <span><i class="fa fa-calendar me-1"></i>Daily Activity — Last 91 Days</span>
+    <span class="text-muted" style="font-size:.72rem">
+      Less
+      <span class="heat-legend heat-0"></span>
+      <span class="heat-legend heat-1"></span>
+      <span class="heat-legend heat-2"></span>
+      <span class="heat-legend heat-3"></span>
+      <span class="heat-legend heat-4"></span>
+      More
+    </span>
+  </div>
+  <div class="card-body" style="padding:10px 14px 14px;overflow-x:auto">
+    <div id="inv-heatmap" style="display:flex;gap:3px;align-items:flex-start;min-width:540px">
+      <span class="text-muted small"><i class="fa fa-spinner fa-spin me-1"></i>Loading…</span>
+    </div>
+  </div>
+</div>
+
+<!-- Charts row -->
+<div class="row g-3 mb-3">
+  <div class="col-md-5">
+    <div class="card h-100">
+      <div class="card-header small"><i class="fa fa-folder-open me-1"></i>Hours by Case</div>
+      <div class="card-body" style="height:220px;padding:12px 8px 8px">
+        <canvas id="chartCase"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-7">
+    <div class="card h-100">
+      <div class="card-header small"><i class="fa fa-chart-line me-1"></i>Weekly Trend — Last 12 Weeks</div>
+      <div class="card-body" style="height:220px;padding:12px 8px 8px">
+        <canvas id="chartWeekly"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent time entries -->
+<div class="card">
+  <div class="card-header small"><i class="fa fa-clock me-1"></i>Recent Time Entries</div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+      <thead class="small text-muted">
+        <tr><th>Date</th><th>Case</th><th>Activity</th><th>Duration</th><th>Type</th></tr>
+      </thead>
+      <tbody id="inv-entries">
+        <tr><td colspan="5" class="text-center text-muted py-3">
+          <i class="fa fa-spinner fa-spin me-1"></i>Loading…
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+.heat-cell { width:11px;height:11px;border-radius:2px;flex-shrink:0;cursor:default;position:relative }
+.heat-cell:hover::after {
+  content: attr(data-tip);
+  position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+  background:#313244;color:#cdd6f4;font-size:.65rem;
+  padding:2px 6px;border-radius:3px;white-space:nowrap;z-index:99;pointer-events:none;
+}
+.heat-col  { display:flex;flex-direction:column;gap:3px }
+.heat-0    { background:#313244 }
+.heat-1    { background:#1d4966 }
+.heat-2    { background:#1a6a8f }
+.heat-3    { background:#1790c0 }
+.heat-4    { background:#89b4fa }
+.heat-legend {
+  display:inline-block;width:10px;height:10px;
+  border-radius:2px;margin:0 1px;vertical-align:middle;
+}
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script>
+Chart.defaults.color       = '#6c7086';
+Chart.defaults.borderColor = '#313244';
+Chart.defaults.font.size   = 11;
+Chart.defaults.font.family = 'system-ui, sans-serif';
+Chart.defaults.plugins.legend.labels.boxWidth = 10;
+Chart.defaults.plugins.legend.labels.padding  = 10;
+
+fetch('/investigators/{{ slug }}/data')
+  .then(r => r.json())
+  .then(d => {
+    // ── Stat cards ────────────────────────────────────────────
+    document.getElementById('st-hours').textContent  = d.total_hours;
+    document.getElementById('st-cases').textContent  = d.case_count;
+    document.getElementById('inv-subtitle').textContent =
+      `${d.total_hours} hours logged across ${d.case_count} case${d.case_count !== 1 ? 's' : ''}`;
+
+    const weeks12mins = d.weekly.reduce((s, w) => s + w.minutes, 0);
+    const avgHrs = Math.round(weeks12mins / 12 / 60 * 10) / 10;
+    document.getElementById('st-avg').textContent = avgHrs;
+
+    const activeDays = d.heatmap.filter(h => h.minutes > 0).length;
+    document.getElementById('st-active').textContent = activeDays;
+
+    // ── Heatmap ───────────────────────────────────────────────
+    const hm = document.getElementById('inv-heatmap');
+    hm.innerHTML = '';
+    const cols = [];
+    let col = [];
+    const first = d.heatmap[0] ? new Date(d.heatmap[0].date + 'T00:00:00') : new Date();
+    const pad   = first.getDay();
+    for (let i = 0; i < pad; i++) col.push(null);
+    d.heatmap.forEach(day => {
+      col.push(day);
+      if (col.length === 7) { cols.push(col); col = []; }
+    });
+    if (col.length) { while (col.length < 7) col.push(null); cols.push(col); }
+    cols.forEach(column => {
+      const colDiv = document.createElement('div');
+      colDiv.className = 'heat-col';
+      column.forEach(day => {
+        const cell = document.createElement('div');
+        cell.className = 'heat-cell heat-' + (day ? day.level : '0');
+        if (day && day.minutes > 0)
+          cell.setAttribute('data-tip', `${day.label}: ${day.hours}h`);
+        else if (day)
+          cell.setAttribute('data-tip', `${day.label}: no activity`);
+        colDiv.appendChild(cell);
+      });
+      hm.appendChild(colDiv);
+    });
+
+    // ── Case bar ──────────────────────────────────────────────
+    const cases = d.by_case.slice(0, 10);
+    new Chart(document.getElementById('chartCase'), {
+      type: 'bar',
+      data: {
+        labels:   cases.map(c => c.case_number),
+        datasets: [{
+          label:           'Hours',
+          data:            cases.map(c => Math.round(c.minutes / 60 * 10) / 10),
+          backgroundColor: '#89b4fa44',
+          borderColor:     '#89b4fa',
+          borderWidth:     1,
+          borderRadius:    3,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              afterLabel: ctx => {
+                const c = cases[ctx.dataIndex];
+                return c.case_name.length > 30 ? c.case_name.slice(0, 30) + '…' : c.case_name;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { beginAtZero: true, grid: { color: '#31324455' } },
+          y: { grid: { display: false } },
+        },
+        onClick: (e, els) => {
+          if (els.length) window.location = '/cases/' + cases[els[0].index].case_id;
+        },
+      },
+    });
+
+    // ── Weekly line ───────────────────────────────────────────
+    new Chart(document.getElementById('chartWeekly'), {
+      type: 'line',
+      data: {
+        labels:   d.weekly.map(w => w.week),
+        datasets: [{
+          label:           'Hours',
+          data:            d.weekly.map(w => w.hours),
+          borderColor:     '#a6e3a1',
+          backgroundColor: '#a6e3a122',
+          borderWidth:     2,
+          pointRadius:     3,
+          pointBackgroundColor: '#a6e3a1',
+          fill:            true,
+          tension:         0.3,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: '#31324455' } },
+          x: { grid: { display: false }, ticks: { maxRotation: 45 } },
+        },
+      },
+    });
+
+    // ── Recent entries table ──────────────────────────────────
+    const tbody = document.getElementById('inv-entries');
+    if (!d.recent.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No time entries yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.recent.map(e => {
+      const dur = e.minutes >= 60
+        ? `${Math.floor(e.minutes / 60)}h ${e.minutes % 60}m`
+        : `${e.minutes}m`;
+      const typeBadge = e.type === 'manual'
+        ? `<span class="badge" style="background:#fab38722;color:#fab387;border:1px solid #fab38755;font-size:.6rem">manual</span>`
+        : `<span class="badge" style="background:#89b4fa22;color:#89b4fa;border:1px solid #89b4fa55;font-size:.6rem">clock</span>`;
+      return `<tr>
+        <td style="font-size:.78rem;white-space:nowrap">${e.date}</td>
+        <td><a href="/cases/${e.case_id}" style="font-size:.78rem;color:#89b4fa">${e.case}</a></td>
+        <td style="font-size:.78rem;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.activity || '<span class="text-muted">—</span>'}</td>
+        <td style="font-size:.78rem;white-space:nowrap">${dur}</td>
+        <td>${typeBadge}</td>
+      </tr>`;
+    }).join('');
+  })
+  .catch(() => {
+    document.getElementById('inv-subtitle').textContent = 'Failed to load data.';
+  });
+</script>
+{% endblock %}
