@@ -6,6 +6,10 @@ __pycache__/
 venv/
 *.egg-info/
 
+# Alembic — ignore generated cache inside versions, keep migration files
+alembic/versions/*
+!alembic/versions/*.py
+
 # App data (sensitive)
 forensiq.db
 uploads/
