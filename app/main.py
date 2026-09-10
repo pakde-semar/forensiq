@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from .database import engine, get_db
 from . import models
 from .templates_env import templates
-from .routers import agency, cases, evidence, reports, integrations, lookup, pipeline, coc, export, yara, hashverify, timeclock, notes, timeline, preview, iocgraph, invheatmap, enrichment, bulkimport
+from .routers import agency, cases, evidence, reports, integrations, lookup, pipeline, coc, export, yara, hashverify, timeclock, notes, timeline, preview, iocgraph, invheatmap, enrichment, bulkimport, tagsearch
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -38,6 +38,7 @@ app.include_router(iocgraph.router)
 app.include_router(invheatmap.router)
 app.include_router(enrichment.router)
 app.include_router(bulkimport.router)
+app.include_router(tagsearch.router)
 
 
 @app.get("/")

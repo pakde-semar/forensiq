@@ -77,6 +77,11 @@
         <i class="fa fa-key"></i> API Keys
       </a>
     </li>
+    <li class="nav-item">
+      <a class="nav-link {% if '/search' in request.url.path %}active{% endif %}" href="/search">
+        <i class="fa fa-magnifying-glass"></i> Search
+      </a>
+    </li>
   </ul>
   <div class="mt-auto p-3">
     {# Quick search #}
@@ -116,8 +121,8 @@
   const _qsr = document.getElementById('quickSearchResults');
   let _qsTimer = null;
 
-  const TYPE_ICON = { case: 'fa-folder-open', evidence: 'fa-box-archive' };
-  const TYPE_COLOR = { case: '#00bfae', evidence: '#f0883e' };
+  const TYPE_ICON  = { case: 'fa-folder-open', evidence: 'fa-box-archive', wiki: 'fa-book-open' };
+  const TYPE_COLOR = { case: '#00bfae', evidence: '#f0883e', wiki: '#cba6f7' };
 
   _qs?.addEventListener('input', () => {
     clearTimeout(_qsTimer);
@@ -125,7 +130,7 @@
     if (q.length < 2) { _qsr.style.display = 'none'; return; }
     _qsTimer = setTimeout(async () => {
       try {
-        const r = await fetch(`/cases/search?q=${encodeURIComponent(q)}`);
+        const r = await fetch(`/search/api?q=${encodeURIComponent(q)}`);
         const d = await r.json();
         if (!d.results || !d.results.length) {
           _qsr.innerHTML = '<div style="padding:8px 12px;color:#8b949e">No results</div>';
@@ -151,7 +156,7 @@
   _qs?.addEventListener('keydown', e => {
     if (e.key === 'Escape') { _qsr.style.display = 'none'; _qs.blur(); }
     if (e.key === 'Enter' && _qs.value.trim().length >= 2) {
-      window.location = `/cases/?q=${encodeURIComponent(_qs.value.trim())}`;
+      window.location = `/search?q=${encodeURIComponent(_qs.value.trim())}`;
     }
   });
 

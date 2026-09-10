@@ -106,6 +106,8 @@ class Case(Base):
                                        order_by="CaseNote.updated_at.desc()")
     enrichment_results  = relationship("EnrichmentResult", back_populates="case", cascade="all, delete-orphan",
                                        order_by="EnrichmentResult.queried_at.desc()")
+    tags                = relationship("CaseTag", back_populates="case", cascade="all, delete-orphan",
+                                       order_by="CaseTag.name")
 
 
 class Investigator(Base):
@@ -285,6 +287,16 @@ class PipelineRun(Base):
     completed_at   = Column(DateTime, nullable=True)
 
     case = relationship("Case", back_populates="pipeline_runs")
+
+
+class CaseTag(Base):
+    __tablename__ = "case_tags"
+    id      = Column(Integer, primary_key=True)
+    case_id = Column(Integer, ForeignKey("cases.id"), nullable=False)
+    name    = Column(String(50), nullable=False)
+    color   = Column(String(7), default="#89b4fa")
+
+    case = relationship("Case", back_populates="tags")
 
 
 class AppSetting(Base):
