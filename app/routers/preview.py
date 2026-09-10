@@ -2,16 +2,20 @@
 Evidence file preview — serves inline preview for images, PDF, text, video, audio, and binary.
 """
 import html as _html
+import re
 from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import models
 
 router = APIRouter(prefix="/cases/{case_id}/evidence/{ev_id}", tags=["preview"])
+
+HEX_PAGE = 4096   # bytes per page in hex viewer
 
 # ── File type sets ────────────────────────────────────────────────────────────
 
@@ -174,14 +178,119 @@ def evidence_preview(case_id: int, ev_id: int, db: Session = Depends(get_db)):
         )
 
     # ── Binary hex dump ────────────────────────────────────────────
+    return _hex_page(fp, ev, size, meta, offset=0)
+
+
+def _hex_page(fp: Path, ev, size: int, meta: str, offset: int = 0) -> HTMLResponse:
     try:
-        raw   = fp.read_bytes()[:4096]
-        dump  = _hex_dump(raw)
-        note  = '' if len(raw) < 4096 else f'\n… [showing first 4096 of {size} bytes]'
-        return _page(
-            meta +
-            f'<pre><code class="language-plaintext">{_html.escape(dump + note)}</code></pre>'
-            '<script>hljs.highlightAll();</script>'
-        )
+        with fp.open("rb") as f:
+            f.seek(offset)
+            raw = f.read(HEX_PAGE)
     except Exception as e:
         return _page(f'<div class="err">Cannot read file: {_html.escape(str(e))}</div>')
+
+    dump     = _hex_dump(raw)
+    prev_off = max(0, offset - HEX_PAGE)
+    next_off = offset + len(raw)
+    has_prev = offset > 0
+    has_next = next_off < size
+
+    nav = f"""
+<div style="display:flex;align-items:center;gap:12px;padding:8px 16px;
+            background:#181825;border-bottom:1px solid #313244;font-size:.75rem;color:#6c7086">
+  <span>Offset <code style="color:#cba6f7">{offset:#010x}</code> — <code style="color:#cba6f7">{min(offset+HEX_PAGE, size)-1:#010x}</code>
+        &nbsp;of&nbsp; {size} bytes</span>
+  <span style="flex:1"></span>
+  {"" if not has_prev else f'<a href="?offset={prev_off}" style="color:#89b4fa">◀ Prev {HEX_PAGE//1024}KB</a>'}
+  <input id="offInput" type="text" value="{offset}" placeholder="offset (dec/hex)"
+         style="width:110px;background:#313244;border:1px solid #45475a;color:#cdd6f4;
+                border-radius:4px;padding:2px 6px;font-family:monospace;font-size:.75rem"
+         onkeydown="if(event.key==='Enter')goOff(this.value)">
+  <button onclick="goOff(document.getElementById('offInput').value)"
+          style="background:#45475a;border:none;color:#cdd6f4;border-radius:4px;padding:2px 8px;cursor:pointer">Go</button>
+  {"" if not has_next else f'<a href="?offset={next_off}" style="color:#89b4fa">Next {HEX_PAGE//1024}KB ▶</a>'}
+</div>
+<script>
+function goOff(v){{
+  let n = v.trim().startsWith('0x') ? parseInt(v,16) : parseInt(v,10);
+  if(!isNaN(n)) window.location.search='?offset='+n;
+}}
+</script>"""
+
+    return _page(
+        meta + nav +
+        f'<pre><code class="language-plaintext">{_html.escape(dump)}</code></pre>'
+        '<script>hljs.highlightAll();</script>'
+    )
+
+
+@router.get("/preview/hex", response_class=HTMLResponse)
+def evidence_hex(
+    case_id: int,
+    ev_id:   int,
+    offset:  int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+):
+    ev = db.query(models.Evidence).filter_by(id=ev_id, case_id=case_id).first()
+    if not ev:
+        return _page('<div class="err">Evidence not found.</div>')
+    fp = Path(ev.file_path) if ev.file_path else None
+    if not fp or not fp.exists():
+        return _page('<div class="err">File not on disk.</div>')
+    size = fp.stat().st_size
+    meta = (f'<div class="meta">{_html.escape(ev.file_name)} &nbsp;·&nbsp; '
+            f'{size} bytes &nbsp;·&nbsp; {ev.evidence_number}</div>')
+    return _hex_page(fp, ev, size, meta, offset=offset)
+
+
+@router.get("/preview/search")
+def evidence_search(
+    case_id: int,
+    ev_id:   int,
+    q:       str = Query("", min_length=1),
+    mode:    str = Query("ascii"),   # ascii | hex
+    db: Session  = Depends(get_db),
+):
+    ev = db.query(models.Evidence).filter_by(id=ev_id, case_id=case_id).first()
+    if not ev:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    fp = Path(ev.file_path) if ev.file_path else None
+    if not fp or not fp.exists():
+        return JSONResponse({"error": "File not on disk"}, status_code=404)
+
+    try:
+        data = fp.read_bytes()
+    except Exception as e:
+        return JSONResponse({"error": str(e)})
+
+    hits: list[dict] = []
+    if mode == "hex":
+        needle_str = q.replace(" ", "")
+        if len(needle_str) % 2 != 0:
+            return JSONResponse({"error": "Odd hex length"})
+        try:
+            needle = bytes.fromhex(needle_str)
+        except ValueError:
+            return JSONResponse({"error": "Invalid hex"})
+    else:
+        try:
+            needle = q.encode("utf-8")
+        except Exception:
+            return JSONResponse({"error": "Bad search string"})
+
+    idx = 0
+    while len(hits) < 200:
+        pos = data.find(needle, idx)
+        if pos == -1:
+            break
+        ctx_start = max(0, pos - 8)
+        ctx_bytes  = data[ctx_start: pos + len(needle) + 8]
+        hits.append({
+            "offset":     pos,
+            "offset_hex": f"{pos:#010x}",
+            "context":    ctx_bytes.hex(),
+            "page":       (pos // HEX_PAGE) * HEX_PAGE,
+        })
+        idx = pos + 1
+
+    return {"query": q, "mode": mode, "count": len(hits), "hits": hits[:200]}
