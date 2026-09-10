@@ -1,54 +1,138 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — ForensiQ{% endblock %}
-{% block content %}
-<h4 class="mb-4"><i class="fa fa-gauge me-2"></i>Dashboard</h4>
 
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h5 class="mb-0"><i class="fa fa-gauge me-2"></i>Dashboard</h5>
+  <a href="/cases/new" class="btn btn-sm" style="background:#00bfae;color:#000;">
+    <i class="fa fa-plus me-1"></i>New Case
+  </a>
+</div>
+
+<!-- ── Stat cards ─────────────────────────────────────────────── -->
 <div class="row g-3 mb-4">
-  <div class="col-md-3">
+  <div class="col-6 col-md-3">
     <div class="card text-center py-3">
-      <div style="font-size:2rem;font-weight:700;color:#58a6ff;">{{ stats.total }}</div>
+      <div style="font-size:2rem;font-weight:700;color:#cba6f7;">{{ stats.total }}</div>
       <div class="text-muted small">Total Cases</div>
     </div>
   </div>
-  <div class="col-md-3">
+  <div class="col-6 col-md-3">
     <div class="card text-center py-3">
-      <div style="font-size:2rem;font-weight:700;color:#3fb950;">{{ stats.active }}</div>
+      <div style="font-size:2rem;font-weight:700;color:#a6e3a1;">{{ stats.active }}</div>
       <div class="text-muted small">Active</div>
     </div>
   </div>
-  <div class="col-md-3">
+  <div class="col-6 col-md-3">
     <div class="card text-center py-3">
-      <div style="font-size:2rem;font-weight:700;color:#d29922;">{{ stats.review }}</div>
+      <div style="font-size:2rem;font-weight:700;color:#f9e2af;">{{ stats.review }}</div>
       <div class="text-muted small">Under Review</div>
     </div>
   </div>
-  <div class="col-md-3">
+  <div class="col-6 col-md-3">
     <div class="card text-center py-3">
-      <div style="font-size:2rem;font-weight:700;color:#00bfae;">{{ stats.evidence }}</div>
+      <div style="font-size:2rem;font-weight:700;color:#89b4fa;">{{ stats.evidence }}</div>
       <div class="text-muted small">Evidence Items</div>
     </div>
   </div>
 </div>
 
+<!-- ── Row 2: Cases/month + Status donut ─────────────────────── -->
+<div class="row g-3 mb-3">
+  <div class="col-md-8">
+    <div class="card h-100">
+      <div class="card-header small"><i class="fa fa-chart-bar me-1"></i>Cases Created — Last 12 Months</div>
+      <div class="card-body" style="height:220px;padding:12px 8px 8px">
+        <canvas id="chartMonths"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header small"><i class="fa fa-circle-half-stroke me-1"></i>Case Status</div>
+      <div class="card-body d-flex align-items-center justify-content-center" style="height:220px;padding:8px">
+        <canvas id="chartStatus"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Row 3: Evidence cat + Investigators + Pipeline ─────────── -->
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header small"><i class="fa fa-box-archive me-1"></i>Evidence Categories</div>
+      <div class="card-body d-flex align-items-center justify-content-center" style="height:220px;padding:8px">
+        <canvas id="chartCats"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header small"><i class="fa fa-clock me-1"></i>Top Investigators (hours)</div>
+      <div class="card-body" style="height:220px;padding:12px 8px 8px">
+        <canvas id="chartInv"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header small"><i class="fa fa-diagram-project me-1"></i>Pipeline Runs — Last 14 Days</div>
+      <div class="card-body" style="height:220px;padding:12px 8px 8px">
+        <canvas id="chartPipe"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Row 4: Activity heatmap ───────────────────────────────── -->
+<div class="row g-3 mb-3">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header small d-flex justify-content-between align-items-center">
+        <span><i class="fa fa-calendar me-1"></i>Activity — Last 91 Days</span>
+        <span class="text-muted" style="font-size:.72rem">
+          Less
+          <span class="heat-legend heat-0"></span>
+          <span class="heat-legend heat-1"></span>
+          <span class="heat-legend heat-2"></span>
+          <span class="heat-legend heat-3"></span>
+          <span class="heat-legend heat-4"></span>
+          More
+        </span>
+      </div>
+      <div class="card-body" style="padding:10px 14px 14px;overflow-x:auto">
+        <div id="heatmap" style="display:flex;gap:3px;align-items:flex-start;min-width:540px">
+          <!-- populated by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Row 5: Recent cases + Activity ───────────────────────── -->
 <div class="row g-3">
   <div class="col-md-8">
     <div class="card">
-      <div class="card-header d-flex justify-content-between">
-        <span>Recent Cases</span>
-        <a href="/cases/new" class="btn btn-sm" style="background:#00bfae;color:#000;font-size:.75rem;">+ New</a>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="small">Recent Cases</span>
+        <a href="/cases/" class="btn btn-sm btn-outline-secondary py-0" style="font-size:.72rem">All cases</a>
       </div>
       <div class="table-responsive">
         <table class="table table-sm table-hover mb-0">
-          <thead><tr><th>Case #</th><th>Name</th><th>Priority</th><th>Status</th><th>Evidence</th><th></th></tr></thead>
+          <thead class="small text-muted">
+            <tr><th>Case #</th><th>Name</th><th>Priority</th><th>Status</th><th>Evidence</th><th></th></tr>
+          </thead>
           <tbody>
             {% for c in recent_cases %}
-            <tr>
+            <tr style="cursor:pointer" onclick="location.href='/cases/{{ c.id }}'">
               <td><code>{{ c.case_number }}</code></td>
               <td>{{ c.name }}</td>
               <td><span class="badge badge-priority-{{ c.priority | lower }}">{{ c.priority }}</span></td>
               <td><span class="status-{{ c.status | lower }}">{{ c.status }}</span></td>
               <td>{{ c.evidence | length }}</td>
-              <td><a href="/cases/{{ c.id }}" class="btn btn-xs btn-outline-secondary" style="font-size:.7rem;padding:1px 6px;">Open</a></td>
+              <td><a href="/cases/{{ c.id }}" class="btn btn-sm py-0 btn-outline-secondary"
+                     style="font-size:.7rem" onclick="event.stopPropagation()">Open</a></td>
             </tr>
             {% else %}
             <tr><td colspan="6" class="text-center text-muted py-3">No cases yet.</td></tr>
@@ -60,19 +144,235 @@
   </div>
   <div class="col-md-4">
     <div class="card">
-      <div class="card-header">Recent Activity</div>
-      <div class="card-body" style="max-height:320px;overflow-y:auto;">
+      <div class="card-header small">Recent Activity</div>
+      <div class="card-body p-0" style="max-height:320px;overflow-y:auto">
         {% for log in recent_logs %}
-        <div class="audit-entry mb-2">
-          <small class="text-muted">{{ log.timestamp.strftime("%m-%d %H:%M") }}</small>
-          <span class="badge bg-secondary ms-1" style="font-size:.6rem;">{{ log.app_name }}</span><br>
-          {{ log.message }}
+        <div class="px-3 py-2 border-bottom border-secondary" style="border-color:#313244!important">
+          <div>
+            <small class="text-muted">{{ log.timestamp.strftime("%m-%d %H:%M") }}</small>
+            <span class="badge bg-secondary ms-1" style="font-size:.6rem">{{ log.app_name }}</span>
+          </div>
+          <div style="font-size:.8rem">{{ log.message[:80] }}{{ "…" if log.message|length > 80 }}</div>
         </div>
         {% else %}
-        <small class="text-muted">No activity yet.</small>
+        <p class="text-muted small p-3">No activity yet.</p>
         {% endfor %}
       </div>
     </div>
   </div>
 </div>
+
+<style>
+.heat-cell {
+  width: 11px; height: 11px; border-radius: 2px; flex-shrink: 0;
+  cursor: default; position: relative;
+}
+.heat-cell:hover::after {
+  content: attr(data-tip);
+  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+  background: #313244; color: #cdd6f4; font-size: .65rem;
+  padding: 2px 6px; border-radius: 3px; white-space: nowrap; z-index: 99;
+  pointer-events: none;
+}
+.heat-col { display: flex; flex-direction: column; gap: 3px; }
+.heat-0 { background: #313244; }
+.heat-1 { background: #1d4966; }
+.heat-2 { background: #1a6a8f; }
+.heat-3 { background: #1790c0; }
+.heat-4 { background: #89b4fa; }
+.heat-legend {
+  display: inline-block; width: 10px; height: 10px;
+  border-radius: 2px; margin: 0 1px; vertical-align: middle;
+}
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script>
+Chart.defaults.color          = '#6c7086';
+Chart.defaults.borderColor    = '#313244';
+Chart.defaults.font.size      = 11;
+Chart.defaults.font.family    = 'system-ui, sans-serif';
+Chart.defaults.plugins.legend.labels.boxWidth = 10;
+Chart.defaults.plugins.legend.labels.padding  = 10;
+
+const PALETTE = ['#cba6f7','#89b4fa','#a6e3a1','#f9e2af','#fab387','#f38ba8','#94e2d5','#f5c2e7','#b4befe'];
+
+const STATUS_COLOR = {
+  'Open':     '#89b4fa',
+  'Active':   '#a6e3a1',
+  'Review':   '#f9e2af',
+  'Closed':   '#6c7086',
+  'Archived': '#45475a',
+};
+const PRIORITY_COLOR = {
+  'Critical':      '#f38ba8',
+  'High':          '#fab387',
+  'Medium':        '#f9e2af',
+  'Low':           '#a6e3a1',
+  'Informational': '#89b4fa',
+};
+
+// ── Cases per month ────────────────────────────────────────────
+new Chart(document.getElementById('chartMonths'), {
+  type: 'bar',
+  data: {
+    labels:   {{ months_labels | safe }},
+    datasets: [{
+      label:           'Cases',
+      data:            {{ months_counts | safe }},
+      backgroundColor: '#cba6f744',
+      borderColor:     '#cba6f7',
+      borderWidth:     1,
+      borderRadius:    3,
+    }],
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#31324455' } },
+      x: { grid: { display: false } },
+    },
+  },
+});
+
+// ── Status donut ───────────────────────────────────────────────
+(function() {
+  const sd = {{ status_data | safe }};
+  const labels = Object.keys(sd);
+  new Chart(document.getElementById('chartStatus'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data:            labels.map(l => sd[l]),
+        backgroundColor: labels.map(l => (STATUS_COLOR[l] || '#a6adc8') + 'cc'),
+        borderColor:     labels.map(l => STATUS_COLOR[l] || '#a6adc8'),
+        borderWidth:     1,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '65%',
+      plugins: {
+        legend: { position: 'bottom', labels: { padding: 8 } },
+      },
+    },
+  });
+})();
+
+// ── Evidence categories donut ──────────────────────────────────
+new Chart(document.getElementById('chartCats'), {
+  type: 'doughnut',
+  data: {
+    labels:   {{ cat_labels | safe }},
+    datasets: [{
+      data:            {{ cat_counts | safe }},
+      backgroundColor: PALETTE.map(c => c + 'cc'),
+      borderColor:     PALETTE,
+      borderWidth:     1,
+    }],
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    cutout: '60%',
+    plugins: { legend: { position: 'bottom', labels: { padding: 6 } } },
+  },
+});
+
+// ── Investigators horizontal bar ───────────────────────────────
+new Chart(document.getElementById('chartInv'), {
+  type: 'bar',
+  data: {
+    labels:   {{ inv_labels | safe }},
+    datasets: [{
+      label:           'Hours',
+      data:            {{ inv_hours | safe }},
+      backgroundColor: '#a6e3a144',
+      borderColor:     '#a6e3a1',
+      borderWidth:     1,
+      borderRadius:    3,
+    }],
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { beginAtZero: true, grid: { color: '#31324455' } },
+      y: { grid: { display: false }, ticks: {
+        callback: v => v.length > 12 ? v.slice(0, 12) + '…' : v,
+      }},
+    },
+  },
+});
+
+// ── Pipeline stacked bar ───────────────────────────────────────
+new Chart(document.getElementById('chartPipe'), {
+  type: 'bar',
+  data: {
+    labels:   {{ pipe_labels | safe }},
+    datasets: [
+      {
+        label:           'Done',
+        data:            {{ pipe_done | safe }},
+        backgroundColor: '#a6e3a188',
+        borderColor:     '#a6e3a1',
+        borderWidth:     1,
+        borderRadius:    2,
+      },
+      {
+        label:           'Error',
+        data:            {{ pipe_error | safe }},
+        backgroundColor: '#f38ba888',
+        borderColor:     '#f38ba8',
+        borderWidth:     1,
+        borderRadius:    2,
+      },
+    ],
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom' } },
+    scales: {
+      y: { beginAtZero: true, stacked: true, ticks: { stepSize: 1 }, grid: { color: '#31324455' } },
+      x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 45 } },
+    },
+  },
+});
+
+// ── Activity heatmap ───────────────────────────────────────────
+(function() {
+  const days = {{ heat_days | tojson }};
+  const hm   = document.getElementById('heatmap');
+
+  // Group into columns of 7 (Sun→Sat)
+  const cols = [];
+  let col = [];
+  // Pad to start on correct weekday
+  const firstDay = days.length ? new Date(days[0].date + 'T00:00:00') : new Date();
+  const padStart = firstDay.getDay();
+  for (let i = 0; i < padStart; i++) col.push(null);
+  days.forEach(d => {
+    col.push(d);
+    if (col.length === 7) { cols.push(col); col = []; }
+  });
+  if (col.length) {
+    while (col.length < 7) col.push(null);
+    cols.push(col);
+  }
+
+  cols.forEach(column => {
+    const colDiv = document.createElement('div');
+    colDiv.className = 'heat-col';
+    column.forEach(d => {
+      const cell = document.createElement('div');
+      cell.className = 'heat-cell heat-' + (d ? d.level : '0');
+      if (d) cell.setAttribute('data-tip', `${d.label}: ${d.count} event${d.count !== 1 ? 's' : ''}`);
+      colDiv.appendChild(cell);
+    });
+    hm.appendChild(colDiv);
+  });
+})();
+</script>
 {% endblock %}
