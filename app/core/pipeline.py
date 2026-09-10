@@ -53,6 +53,13 @@ PIPELINES: dict[str, dict] = {
         "auto_on":     [],
         "modules":     ["yara_scan"],
     },
+    "hash_verify": {
+        "label":       "Hash Verify",
+        "icon":        "fa-shield-check",
+        "description": "Re-hash all evidence files and compare against stored hashes.",
+        "auto_on":     [],
+        "modules":     ["hashverify"],
+    },
 }
 
 # ─── Module loader ─────────────────────────────────────────────────────────────

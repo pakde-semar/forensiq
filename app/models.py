@@ -98,6 +98,8 @@ class Case(Base):
                                       order_by="PipelineRun.started_at.desc()")
     yara_scan_results  = relationship("YaraScanResult",   back_populates="case", cascade="all, delete-orphan",
                                       order_by="YaraScanResult.scanned_at.desc()")
+    hash_verify_batches = relationship("HashVerifyBatch", back_populates="case", cascade="all, delete-orphan",
+                                       order_by="HashVerifyBatch.run_at.desc()")
 
 
 class Investigator(Base):
@@ -181,6 +183,23 @@ class CoCEntry(Base):
     notes       = Column(Text, default="")
 
     evidence = relationship("Evidence", back_populates="coc_entries")
+
+
+class HashVerifyBatch(Base):
+    __tablename__ = "hash_verify_batches"
+
+    id             = Column(Integer, primary_key=True)
+    case_id        = Column(Integer, ForeignKey("cases.id"), nullable=False)
+    run_at         = Column(DateTime, default=datetime.utcnow)
+    run_by         = Column(String(255), default="")
+    total          = Column(Integer, default=0)
+    ok_count       = Column(Integer, default=0)
+    tampered_count = Column(Integer, default=0)
+    missing_count  = Column(Integer, default=0)
+    no_hash_count  = Column(Integer, default=0)
+    results_json   = Column(Text, default="[]")
+
+    case = relationship("Case", back_populates="hash_verify_batches")
 
 
 class YaraRule(Base):
