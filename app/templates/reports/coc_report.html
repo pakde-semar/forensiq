@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Chain of Custody — {{ ev.evidence_number }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 16mm 20mm 16mm;
+    @bottom-center {
+      content: "CHAIN OF CUSTODY — CONTROLLED DOCUMENT — Page " counter(page) " of " counter(pages);
+      font-size: 7pt;
+      color: #555;
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9pt;
+    color: #111;
+    background: #fff;
+  }
+
+  /* ── Header ── */
+  .doc-header {
+    border-bottom: 3px solid #1a2e4a;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .doc-header .agency-block { flex: 1; }
+  .doc-header .agency-name  { font-size: 13pt; font-weight: 700; color: #1a2e4a; }
+  .doc-header .agency-unit  { font-size: 9pt; color: #444; }
+  .doc-header .doc-id-block {
+    text-align: right;
+    border: 1.5px solid #1a2e4a;
+    padding: 6px 10px;
+    min-width: 160px;
+  }
+  .doc-id-block .doc-title  { font-size: 8pt; font-weight: 700; letter-spacing: .5px; color: #1a2e4a; }
+  .doc-id-block .coc-number { font-size: 16pt; font-weight: 900; color: #1a2e4a; font-family: 'Courier New', monospace; }
+  .doc-id-block .doc-sub    { font-size: 7pt; color: #555; }
+
+  /* ── Classification banner ── */
+  .classification-banner {
+    background: #1a2e4a;
+    color: #fff;
+    text-align: center;
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 3px 0;
+    margin-bottom: 10px;
+  }
+
+  /* ── Sections ── */
+  .section { margin-bottom: 10px; break-inside: avoid; }
+  .section-title {
+    background: #1a2e4a;
+    color: #fff;
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: .5px;
+    padding: 3px 8px;
+    margin-bottom: 0;
+  }
+  .section-body {
+    border: 1px solid #1a2e4a;
+    border-top: none;
+    padding: 8px;
+  }
+
+  /* ── Info grid ── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+  .info-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .info-cell {
+    border: 1px solid #ccc;
+    margin: -1px 0 0 -1px;
+    padding: 4px 6px;
+  }
+  .info-cell .label { font-size: 7pt; color: #555; font-weight: 700; text-transform: uppercase; }
+  .info-cell .value { font-size: 9pt; }
+  .info-cell .value.mono { font-family: 'Courier New', monospace; font-size: 8pt; word-break: break-all; }
+
+  /* ── CoC table ── */
+  table.coc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8pt;
+  }
+  .coc-table thead th {
+    background: #2c4a7c;
+    color: #fff;
+    padding: 4px 5px;
+    text-align: left;
+    font-size: 7.5pt;
+    border: 1px solid #1a2e4a;
+  }
+  .coc-table tbody td {
+    padding: 4px 5px;
+    border: 1px solid #ccc;
+    vertical-align: top;
+  }
+  .coc-table tbody tr:nth-child(even) { background: #f4f6fa; }
+  .coc-table tbody tr.empty td {
+    text-align: center;
+    color: #888;
+    font-style: italic;
+    padding: 12px;
+  }
+  .action-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 7pt;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .action-received    { background: #d4edda; color: #155724; }
+  .action-transferred { background: #cce5ff; color: #004085; }
+  .action-examined    { background: #fff3cd; color: #856404; }
+  .action-returned    { background: #d4edda; color: #155724; }
+  .action-stored      { background: #e2e3e5; color: #383d41; }
+  .action-disposed    { background: #f8d7da; color: #721c24; }
+
+  /* ── Signature block ── */
+  .sig-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+  .sig-block { border-top: 1px solid #111; padding-top: 4px; }
+  .sig-block .sig-label { font-size: 7pt; color: #555; }
+  .sig-block .sig-line  { font-size: 7pt; margin-top: 2px; }
+
+  /* ── Hash section ── */
+  .hash-row { display: flex; gap: 8px; margin-bottom: 4px; }
+  .hash-label { font-size: 7.5pt; font-weight: 700; color: #444; min-width: 55px; padding-top: 2px; }
+  .hash-value { font-family: 'Courier New', monospace; font-size: 8pt; word-break: break-all; flex: 1; }
+
+  /* ── Certification ── */
+  .cert-text {
+    font-size: 8pt;
+    color: #333;
+    line-height: 1.5;
+    border-top: 1px solid #ccc;
+    padding-top: 8px;
+    margin-top: 8px;
+  }
+
+  /* ── Identifier bar ── */
+  .identifier-bar {
+    background: #f4f6fa;
+    border: 1px solid #ccc;
+    padding: 4px 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 9pt;
+    letter-spacing: 1px;
+    text-align: center;
+    color: #1a2e4a;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+
+{# ── Document header ── #}
+<div class="doc-header">
+  <div class="agency-block">
+    <div class="agency-name">{{ agency.name }}</div>
+    {% if agency.unit %}<div class="agency-unit">{{ agency.unit }}</div>{% endif %}
+    {% if agency.address %}<div class="agency-unit">{{ agency.address }}{% if agency.city %}, {{ agency.city }}{% endif %}</div>{% endif %}
+    {% if agency.phone %}<div class="agency-unit">Tel: {{ agency.phone }}</div>{% endif %}
+  </div>
+  <div class="doc-id-block">
+    <div class="doc-title">CHAIN OF CUSTODY</div>
+    <div class="coc-number">{{ ev.coc_number }}</div>
+    <div class="doc-sub">Evidence: {{ ev.evidence_number }}</div>
+    <div class="doc-sub">Generated: {{ generated_at }}</div>
+  </div>
+</div>
+
+<div class="classification-banner">{{ case.classification | upper }} — FOR OFFICIAL USE ONLY</div>
+
+<div class="identifier-bar">{{ ev.coc_number }} | {{ ev.evidence_number }} | CASE: {{ case.case_number }}</div>
+
+{# ── Case info ── #}
+<div class="section">
+  <div class="section-title">1. CASE INFORMATION</div>
+  <div class="section-body">
+    <div class="info-grid three">
+      <div class="info-cell">
+        <div class="label">Case Number</div>
+        <div class="value">{{ case.case_number }}</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">Case Name</div>
+        <div class="value">{{ case.name }}</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">Status / Priority</div>
+        <div class="value">{{ case.status }} / {{ case.priority }}</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">Classification</div>
+        <div class="value">{{ case.classification }}</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">Date Opened</div>
+        <div class="value">{{ case.created_at.strftime("%Y-%m-%d") }}</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">Lead Investigator</div>
+        <div class="value">
+          {% for inv in case.investigators if inv.is_lead %}{{ inv.name }}{% endfor %}
+          {% if not case.investigators %}—{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Evidence description ── #}
+<div class="section">
+  <div class="section-title">2. EVIDENCE DESCRIPTION</div>
+  <div class="section-body">
+    <div class="info-grid">
+      <div class="info-cell">
+        <div class="label">Evidence Number</div>
+        <div class="value">{{ ev.evidence_number }}</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">CoC Number</div>
+        <div class="value">{{ ev.coc_number }}</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">File Name</div>
+        <div class="value mono">{{ ev.file_name }}</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">Category</div>
+        <div class="value">{{ ev.category }}</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">File Size</div>
+        <div class="value">{{ "%.2f"|format(ev.file_size / 1048576) }} MB ({{ "{:,}".format(ev.file_size) }} bytes)</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">Date Added</div>
+        <div class="value">{{ ev.date_added.strftime("%Y-%m-%d %H:%M UTC") }}</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">Submitter</div>
+        <div class="value">{{ ev.submitter or "—" }}</div>
+      </div>
+      <div class="info-cell">
+        <div class="label">Original Location</div>
+        <div class="value">{{ ev.original_location or "—" }}</div>
+      </div>
+    </div>
+    {% if ev.notes %}
+    <div style="margin-top:6px;padding:4px 6px;background:#f8f9fa;border:1px solid #dee2e6;border-radius:2px;font-size:8.5pt;">
+      <strong>Notes:</strong> {{ ev.notes }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Hash integrity ── #}
+<div class="section">
+  <div class="section-title">3. HASH INTEGRITY VALUES</div>
+  <div class="section-body">
+    {% if ev.md5 %}
+    <div class="hash-row">
+      <span class="hash-label">MD5</span>
+      <span class="hash-value">{{ ev.md5 }}</span>
+    </div>
+    {% endif %}
+    {% if ev.sha256 %}
+    <div class="hash-row">
+      <span class="hash-label">SHA-256</span>
+      <span class="hash-value">{{ ev.sha256 }}</span>
+    </div>
+    {% endif %}
+    <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:8pt">
+      <div>
+        <span style="color:#555;font-weight:700">Verification Status:</span>
+        {% if ev.verified_at %}
+        <span style="color:#155724;font-weight:700"> ✓ Verified {{ ev.verified_at.strftime("%Y-%m-%d") }}</span>
+        {% else %}
+        <span style="color:#856404;font-weight:700"> ⚠ Not yet verified</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Chain of custody log ── #}
+<div class="section">
+  <div class="section-title">4. CHAIN OF CUSTODY LOG</div>
+  <div class="section-body" style="padding:0">
+    <table class="coc-table">
+      <thead>
+        <tr>
+          <th style="width:12%">Date / Time</th>
+          <th style="width:10%">Action</th>
+          <th style="width:16%">Released By</th>
+          <th style="width:16%">Received By</th>
+          <th style="width:18%">Purpose</th>
+          <th style="width:14%">Location</th>
+          <th style="width:9%">Method</th>
+          <th style="width:5%">Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {# Initial intake row #}
+        <tr>
+          <td>{{ ev.date_added.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td><span class="action-badge action-received">received</span></td>
+          <td>{{ ev.submitter or "—" }}</td>
+          <td>{{ agency.name }}</td>
+          <td>Initial evidence intake</td>
+          <td>{{ ev.original_location or agency.address or "—" }}</td>
+          <td>in-person</td>
+          <td></td>
+        </tr>
+        {% for entry in ev.coc_entries %}
+        <tr>
+          <td>{{ entry.timestamp.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td><span class="action-badge action-{{ entry.action }}">{{ entry.action }}</span></td>
+          <td>{{ entry.released_by or "—" }}</td>
+          <td>{{ entry.received_by or "—" }}</td>
+          <td>{{ entry.purpose or "—" }}</td>
+          <td>{{ entry.location or "—" }}</td>
+          <td>{{ entry.method or "—" }}</td>
+          <td>{{ entry.notes or "" }}</td>
+        </tr>
+        {% else %}
+        {# No additional entries — initial intake is the only row #}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Certification ── #}
+<div class="section">
+  <div class="section-title">5. CERTIFICATION</div>
+  <div class="section-body">
+    <p class="cert-text">
+      I/We certify that the evidence described above has been handled in accordance with established forensic procedures,
+      and that the integrity of the evidence has been maintained throughout its custody. Any access, transfer, or examination
+      has been recorded in the Chain of Custody Log above.
+    </p>
+
+    <div class="sig-grid" style="margin-top:24px;">
+      {% for inv in case.investigators %}
+      <div class="sig-block">
+        <div class="sig-label">Investigator</div>
+        <div style="height:28px;"></div>
+        <div class="sig-line">{{ inv.name }}</div>
+        <div class="sig-label">{{ "Lead Investigator" if inv.is_lead else "Investigator" }}</div>
+        {% if inv.email %}<div class="sig-label">{{ inv.email }}</div>{% endif %}
+      </div>
+      {% else %}
+      <div class="sig-block">
+        <div class="sig-label">Investigator</div>
+        <div style="height:28px;"></div>
+        <div class="sig-line">_________________________</div>
+        <div class="sig-label">Name / Badge</div>
+      </div>
+      <div class="sig-block">
+        <div class="sig-label">Supervisor</div>
+        <div style="height:28px;"></div>
+        <div class="sig-line">_________________________</div>
+        <div class="sig-label">Name / Title</div>
+      </div>
+      <div class="sig-block">
+        <div class="sig-label">Records Custodian</div>
+        <div style="height:28px;"></div>
+        <div class="sig-line">{{ agency.legal_records_custodian or "_________________________" }}</div>
+        <div class="sig-label">{{ agency.name }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

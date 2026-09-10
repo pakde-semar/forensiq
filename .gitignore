@@ -13,7 +13,7 @@ alembic/versions/*
 # App data (sensitive)
 forensiq.db
 uploads/
-reports/
+/reports/
 
 # Env / secrets
 .env

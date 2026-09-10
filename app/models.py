@@ -131,7 +131,10 @@ class Evidence(Base):
     date_added        = Column(DateTime, default=datetime.utcnow)
     verified_at       = Column(DateTime, nullable=True)
 
-    case = relationship("Case", back_populates="evidence")
+    case        = relationship("Case", back_populates="evidence")
+    coc_entries = relationship("CoCEntry", back_populates="evidence",
+                               cascade="all, delete-orphan",
+                               order_by="CoCEntry.timestamp")
 
 
 class AuditLog(Base):
@@ -159,6 +162,23 @@ class Report(Base):
     created_by = Column(String(255), default="")
 
     case = relationship("Case", back_populates="reports")
+
+
+class CoCEntry(Base):
+    __tablename__ = "coc_entries"
+
+    id          = Column(Integer, primary_key=True)
+    evidence_id = Column(Integer, ForeignKey("evidence.id"), nullable=False)
+    timestamp   = Column(DateTime, default=datetime.utcnow)
+    action      = Column(String(50), default="received")   # received|transferred|examined|returned|stored|disposed
+    released_by = Column(String(255), default="")
+    received_by = Column(String(255), default="")
+    purpose     = Column(String(500), default="")
+    location    = Column(String(255), default="")
+    method      = Column(String(100), default="")          # in-person|courier|digital
+    notes       = Column(Text, default="")
+
+    evidence = relationship("Evidence", back_populates="coc_entries")
 
 
 class PipelineRun(Base):
