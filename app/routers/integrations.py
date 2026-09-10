@@ -210,3 +210,143 @@ def misp_publish(
                   f"MISP event {case.misp_event_id} {'published ✓' if ok else 'publish failed'}",
                   investigator=investigator, app_name="MISP")
     return RedirectResponse(f"/cases/{case_id}#tab-integrations", status_code=303)
+
+
+@router.post("/misp/unlink")
+def misp_unlink(
+    case_id: int,
+    investigator: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Remove the MISP event link from this case."""
+    case = db.query(models.Case).filter_by(id=case_id).first()
+    if case and case.misp_event_id:
+        old = case.misp_event_id
+        case.misp_event_id = ""
+        db.commit()
+        audit.log(db, case_id, f"Unlinked MISP event {old}",
+                  investigator=investigator, app_name="MISP")
+    return RedirectResponse(f"/cases/{case_id}#tab-integrations", status_code=303)
+
+
+@router.get("/misp/event-detail")
+def misp_event_detail(case_id: int, db: Session = Depends(get_db)):
+    """Return linked MISP event details as JSON for inline display."""
+    from fastapi.responses import JSONResponse
+    case = db.query(models.Case).filter_by(id=case_id).first()
+    if not case or not case.misp_event_id:
+        return JSONResponse({"error": "not linked"}, status_code=400)
+    event = mp.get_event(case.misp_event_id)
+    if not event:
+        return JSONResponse({"error": "Event not found or MISP unreachable"}, status_code=404)
+    return JSONResponse({
+        "id":          event.get("id"),
+        "uuid":        event.get("uuid", ""),
+        "info":        event.get("info", ""),
+        "date":        event.get("date", ""),
+        "published":   event.get("published", False),
+        "orgc":        event.get("Orgc", {}).get("name", ""),
+        "attr_count":  event.get("attribute_count", len(event.get("Attribute", []))),
+        "tags":        [t.get("name", "") for t in event.get("Tag", [])],
+        "threat_level": event.get("threat_level_id", ""),
+        "analysis":    event.get("analysis", ""),
+        "distribution": event.get("distribution", ""),
+        "url":         mp.event_url(case.misp_event_id),
+    })
+
+
+@router.post("/misp/push_iocs")
+def misp_push_iocs(
+    case_id: int,
+    investigator: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Extract IOCs from case notes + evidence, then push to linked MISP event."""
+    import re
+    case = db.query(models.Case).filter_by(id=case_id).first()
+    if not case or not case.misp_event_id:
+        return RedirectResponse(f"/cases/{case_id}#tab-integrations", status_code=303)
+
+    # Collect text to extract from
+    text_parts = [case.notes or ""]
+    for ev in case.evidence:
+        text_parts.append(ev.notes or "")
+        text_parts.append(ev.file_name or "")
+        if ev.md5:
+            text_parts.append(ev.md5)
+        if ev.sha256:
+            text_parts.append(ev.sha256)
+    text = "\n".join(text_parts)
+
+    _PRIVATE = re.compile(
+        r"^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.0\.0\.0|::1)"
+    )
+    patterns = {
+        "IPv4":   re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
+        "Domain": re.compile(r"\b(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}\b"),
+        "URL":    re.compile(r"https?://[^\s\"'<>]+"),
+        "MD5":    re.compile(r"\b[0-9a-fA-F]{32}\b"),
+        "SHA256": re.compile(r"\b[0-9a-fA-F]{64}\b"),
+        "SHA1":   re.compile(r"\b[0-9a-fA-F]{40}\b"),
+        "Email":  re.compile(r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b"),
+        "CVE":    re.compile(r"\bCVE-\d{4}-\d{4,}\b", re.I),
+    }
+
+    iocs: list[dict] = []
+    seen: set[str] = set()
+    for ioc_type, pat in patterns.items():
+        for m in pat.finditer(text):
+            val = m.group(0).rstrip(".,;)")
+            if val in seen:
+                continue
+            if ioc_type == "IPv4" and _PRIVATE.match(val):
+                continue
+            seen.add(val)
+            iocs.append({"type": ioc_type, "value": val})
+
+    pushed, skipped = mp.bulk_add_iocs(
+        case.misp_event_id, iocs,
+        comment_prefix=f"ForensiQ {case.case_number}"
+    )
+    audit.log(db, case_id,
+              f"Pushed {pushed} IOCs to MISP event {case.misp_event_id} "
+              f"({skipped} skipped)",
+              investigator=investigator, app_name="MISP")
+    return RedirectResponse(f"/cases/{case_id}#tab-integrations", status_code=303)
+
+
+@router.post("/misp/add_tag")
+def misp_add_tag(
+    case_id: int,
+    tag: str      = Form(...),
+    investigator: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Add a tag to the linked MISP event."""
+    case = db.query(models.Case).filter_by(id=case_id).first()
+    if case and case.misp_event_id and tag.strip():
+        ok = mp.add_tag_to_event(case.misp_event_id, tag.strip())
+        audit.log(db, case_id,
+                  f"Tag '{tag}' {'added to' if ok else 'failed on'} MISP event {case.misp_event_id}",
+                  investigator=investigator, app_name="MISP")
+    return RedirectResponse(f"/cases/{case_id}#tab-integrations", status_code=303)
+
+
+@router.get("/misp/search")
+def misp_search(case_id: int, q: str = "", db: Session = Depends(get_db)):
+    """Search MISP events by value and return JSON."""
+    from fastapi.responses import JSONResponse
+    if not q.strip():
+        return JSONResponse({"results": []})
+    results = mp.search_events_by_value(q.strip(), limit=10)
+    return JSONResponse({"results": [
+        {
+            "id":        e.get("id"),
+            "info":      e.get("info", ""),
+            "date":      e.get("date", ""),
+            "orgc":      e.get("Orgc", {}).get("name", "") if isinstance(e.get("Orgc"), dict) else "",
+            "attr_count": e.get("attribute_count", "?"),
+            "url":       mp.event_url(e.get("id", "")),
+        }
+        for e in results
+    ]})

@@ -382,7 +382,7 @@
           <div class="card-body">
             {% if not case.misp_event_id %}
             <p class="text-muted small">Not linked to any MISP event.</p>
-            <div class="d-flex gap-2 flex-wrap">
+            <div class="d-flex gap-2 flex-wrap mb-3">
               <form method="post" action="/cases/{{ case.id }}/integrations/misp/link" class="d-flex gap-1">
                 <input type="text" name="misp_event_id" class="form-control form-control-sm"
                        placeholder="Event ID or UUID" style="width:180px;" required>
@@ -394,34 +394,65 @@
                 </button>
               </form>
             </div>
-            {% else %}
-            <div class="mb-3">
-              <table class="table table-sm mb-0">
-                <tr><th class="text-muted">MISP Event</th><td>#{{ case.misp_event_id }}</td></tr>
-              </table>
+            <hr>
+            <p class="small text-muted mb-1"><i class="fa fa-magnifying-glass me-1"></i>Search MISP events:</p>
+            <div class="input-group input-group-sm mb-2">
+              <input type="text" id="mispSearchQ" class="form-control" placeholder="IP, hash, domain…">
+              <button class="btn btn-outline-secondary" onclick="mispSearch()">Search</button>
             </div>
-            <div class="d-flex gap-2 flex-wrap">
+            <div id="mispSearchResults" class="small"></div>
+
+            {% else %}
+            {# ── Inline event details ── #}
+            <div id="mispEventDetail" class="mb-3">
+              <div class="text-muted small"><i class="fa fa-spinner fa-spin me-1"></i>Loading event…</div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap mb-2">
               <form method="post" action="/cases/{{ case.id }}/integrations/misp/pull_iocs">
-                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <button type="submit" class="btn btn-sm btn-outline-secondary"
+                        title="Pull IOC attributes from MISP into case notes">
                   <i class="fa fa-download me-1"></i>Pull IOCs
+                </button>
+              </form>
+              <form method="post" action="/cases/{{ case.id }}/integrations/misp/push_iocs">
+                <button type="submit" class="btn btn-sm btn-outline-secondary"
+                        title="Extract IOCs from case notes/evidence and push to MISP">
+                  <i class="fa fa-upload me-1"></i>Push All IOCs
                 </button>
               </form>
               <form method="post" action="/cases/{{ case.id }}/integrations/misp/publish"
                     onsubmit="return confirm('Publish MISP event {{ case.misp_event_id }}? This shares it with the community.')">
                 <button type="submit" class="btn btn-sm btn-outline-danger">
-                  <i class="fa fa-share-from-square me-1"></i>Publish Event
+                  <i class="fa fa-share-from-square me-1"></i>Publish
+                </button>
+              </form>
+              <form method="post" action="/cases/{{ case.id }}/integrations/misp/unlink"
+                    onsubmit="return confirm('Unlink MISP event {{ case.misp_event_id }}?')">
+                <button type="submit" class="btn btn-sm btn-outline-secondary text-muted">
+                  <i class="fa fa-link-slash me-1"></i>Unlink
                 </button>
               </form>
             </div>
+
+            {# Add tag #}
+            <form method="post" action="/cases/{{ case.id }}/integrations/misp/add_tag"
+                  class="d-flex gap-1 mb-2">
+              <input type="text" name="tag" class="form-control form-control-sm"
+                     placeholder="Tag name (e.g. tlp:white)" style="flex:1;" required>
+              <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="fa fa-tag me-1"></i>Add Tag
+              </button>
+            </form>
+
             {% if case.evidence %}
-            <hr>
+            <hr class="my-2">
             <p class="small text-muted mb-1">Push evidence hash to MISP:</p>
             {% for ev in case.evidence %}
             <form method="post" action="/cases/{{ case.id }}/integrations/misp/push_hash"
                   class="d-flex align-items-center gap-2 mb-1">
               <input type="hidden" name="ev_id" value="{{ ev.id }}">
-              <code class="small flex-grow-1">{{ ev.evidence_number }} — {{ ev.file_name }}</code>
-              <button type="submit" class="btn btn-xs btn-outline-secondary" style="font-size:.7rem;padding:1px 6px;">
+              <code class="small flex-grow-1" style="font-size:.72rem">{{ ev.evidence_number }} — {{ ev.file_name }}</code>
+              <button type="submit" class="btn btn-outline-secondary" style="font-size:.7rem;padding:1px 6px;">
                 Push Hash
               </button>
             </form>
@@ -668,6 +699,67 @@
   if (plHasRunning()) {
     setTimeout(() => { if (plHasRunning()) window.location.reload(); }, 4000);
   }
+
+  // ── MISP ──────────────────────────────────────────────────────────────────
+  const _mispDetail = document.getElementById('mispEventDetail');
+
+  async function mispLoadDetail() {
+    if (!_mispDetail) return;
+    try {
+      const r = await fetch('/cases/{{ case.id }}/integrations/misp/event-detail');
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        _mispDetail.innerHTML = `<div class="text-danger small">${err.error || 'MISP unreachable'}</div>`;
+        return;
+      }
+      const d = await r.json();
+      const tags = d.tags.length
+        ? d.tags.map(t => `<span class="badge bg-secondary me-1" style="font-size:.65rem">${t}</span>`).join('')
+        : '<span class="text-muted">none</span>';
+      const tl  = (['Undefined','Low','Medium','High',''])[parseInt(d.threat_level)||0] || d.threat_level;
+      const an  = (['Initial','Ongoing','Complete'])[parseInt(d.analysis)||0] || d.analysis;
+      const pub = d.published
+        ? '<span class="badge bg-success">Published</span>'
+        : '<span class="badge bg-warning text-dark">Draft</span>';
+      _mispDetail.innerHTML = `
+        <table class="table table-sm mb-2" style="font-size:.8rem">
+          <tr><th class="text-muted" style="width:110px">Event</th><td>#${d.id} ${pub}</td></tr>
+          <tr><th class="text-muted">Title</th><td>${d.info}</td></tr>
+          <tr><th class="text-muted">Org</th><td>${d.orgc}</td></tr>
+          <tr><th class="text-muted">Date</th><td>${d.date}</td></tr>
+          <tr><th class="text-muted">Attributes</th><td>${d.attr_count}</td></tr>
+          <tr><th class="text-muted">Threat Level</th><td>${tl}</td></tr>
+          <tr><th class="text-muted">Analysis</th><td>${an}</td></tr>
+          <tr><th class="text-muted">Tags</th><td>${tags}</td></tr>
+        </table>`;
+    } catch(e) {
+      _mispDetail.innerHTML = `<div class="text-muted small">Could not load event details.</div>`;
+    }
+  }
+
+  async function mispSearch() {
+    const q   = document.getElementById('mispSearchQ')?.value?.trim();
+    const out = document.getElementById('mispSearchResults');
+    if (!q || !out) return;
+    out.innerHTML = '<span class="text-muted"><i class="fa fa-spinner fa-spin"></i> Searching…</span>';
+    try {
+      const r = await fetch(`/cases/{{ case.id }}/integrations/misp/search?q=${encodeURIComponent(q)}`);
+      const d = await r.json();
+      if (!d.results || !d.results.length) {
+        out.innerHTML = '<span class="text-muted">No events found.</span>';
+        return;
+      }
+      out.innerHTML = '<table class="table table-sm mt-1" style="font-size:.78rem"><thead><tr><th>ID</th><th>Title</th><th>Org</th><th>Date</th><th>Attr</th></tr></thead><tbody>'
+        + d.results.map(e => `<tr>
+            <td><a href="${e.url}" target="_blank">#${e.id}</a></td>
+            <td>${e.info}</td><td>${e.orgc}</td><td>${e.date}</td><td>${e.attr_count}</td>
+          </tr>`).join('') + '</tbody></table>';
+    } catch(e) {
+      out.innerHTML = '<span class="text-danger small">Search failed.</span>';
+    }
+  }
+
+  document.querySelector('a[href="#tab-integrations"]')?.addEventListener('shown.bs.tab', mispLoadDetail);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 <style>

@@ -39,6 +39,13 @@ PIPELINES: dict[str, dict] = {
         "auto_on":     [],
         "modules":     ["ioc_extract", "risk_score", "flowintel_push"],
     },
+    "misp_sync": {
+        "label":       "MISP Sync",
+        "icon":        "fa-shield-virus",
+        "description": "Extract IOCs from case → push to linked MISP event as attributes.",
+        "auto_on":     [],
+        "modules":     ["ioc_extract", "misp_push"],
+    },
 }
 
 # ─── Module loader ─────────────────────────────────────────────────────────────

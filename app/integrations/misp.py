@@ -146,3 +146,95 @@ def publish_event(event_id: str | int) -> bool:
 
 def event_url(event_id: str | int) -> str:
     return f"{MISP_BASE_URL}/events/view/{event_id}"
+
+
+def get_tags() -> list[str]:
+    """Return list of available MISP tag names."""
+    m = _misp()
+    if not m:
+        return []
+    try:
+        result = m.tags(pythonify=False)
+        if isinstance(result, list):
+            return [t.get("name", "") for t in result if t.get("name")]
+        return []
+    except Exception as e:
+        log.warning("MISP get_tags failed: %s", e)
+        return []
+
+
+def add_tag_to_event(event_id: str | int, tag: str) -> bool:
+    """Add a tag to a MISP event."""
+    m = _misp()
+    if not m:
+        return False
+    try:
+        result = m.tag(event_id, tag)
+        return True
+    except Exception as e:
+        log.warning("MISP add_tag failed: %s", e)
+        return False
+
+
+# IOC type map: ForensiQ label → MISP attribute type
+_IOC_TYPE_MAP = {
+    "IPv4":    "ip-src",
+    "Domain":  "domain",
+    "URL":     "url",
+    "MD5":     "md5",
+    "SHA256":  "sha-256",
+    "SHA1":    "sha-1",
+    "Email":   "email-src",
+    "CVE":     "vulnerability",
+}
+
+
+def bulk_add_iocs(event_id: str | int, iocs: list[dict],
+                  comment_prefix: str = "ForensiQ") -> tuple[int, int]:
+    """
+    Push a list of IOC dicts to a MISP event.
+    Each dict: {"type": ForensiQ label, "value": str}
+    Returns (pushed, skipped).
+    """
+    m = _misp()
+    if not m:
+        return 0, len(iocs)
+    pushed = skipped = 0
+    for ioc in iocs:
+        misp_type = _IOC_TYPE_MAP.get(ioc.get("type", ""))
+        value     = (ioc.get("value") or "").strip()
+        if not misp_type or not value:
+            skipped += 1
+            continue
+        try:
+            from pymisp import MISPAttribute
+            attr         = MISPAttribute()
+            attr.type    = misp_type
+            attr.value   = value
+            attr.comment = comment_prefix
+            attr.to_ids  = misp_type in ("ip-src", "ip-dst", "domain", "url",
+                                          "md5", "sha-256", "sha-1")
+            result = m.add_attribute(event_id, attr, pythonify=False)
+            if isinstance(result, dict) and "Attribute" in result:
+                pushed += 1
+            else:
+                skipped += 1
+        except Exception as e:
+            log.warning("MISP bulk_add_ioc %s failed: %s", value, e)
+            skipped += 1
+    return pushed, skipped
+
+
+def search_events_by_value(value: str, limit: int = 10) -> list[dict]:
+    """Search MISP events that contain a specific value."""
+    m = _misp()
+    if not m:
+        return []
+    try:
+        result = m.search(value=value, limit=limit, pythonify=False)
+        if isinstance(result, list):
+            return [e.get("Event", e) for e in result]
+        return []
+    except Exception as e:
+        log.warning("MISP search failed: %s", e)
+        return []
