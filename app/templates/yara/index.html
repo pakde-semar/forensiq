@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}Yara Rules — ForensiQ{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="mb-0"><i class="fa fa-shield-halved me-2"></i>Yara Rule Management</h5>
+  <div class="d-flex gap-2">
+    <form method="post" action="/yara/rules/load_samples" class="d-inline">
+      <button class="btn btn-sm btn-outline-secondary">
+        <i class="fa fa-download me-1"></i>Load sample rules
+      </button>
+    </form>
+    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addRuleModal">
+      <i class="fa fa-plus me-1"></i>Add rule
+    </button>
+  </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger small py-2">{{ error }}</div>
+{% endif %}
+
+{% if rules %}
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-sm table-dark table-hover mb-0 align-middle">
+      <thead class="table-secondary text-muted small">
+        <tr>
+          <th style="width:40px">On</th>
+          <th>Name</th>
+          <th>Tags</th>
+          <th>Source</th>
+          <th>Description</th>
+          <th style="width:120px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rules %}
+        <tr>
+          <td>
+            <form method="post" action="/yara/rules/{{ r.id }}/toggle">
+              <button class="btn btn-sm py-0 {% if r.enabled %}btn-success{% else %}btn-outline-secondary{% endif %}" style="font-size:0.7rem">
+                {{ "ON" if r.enabled else "OFF" }}
+              </button>
+            </form>
+          </td>
+          <td>
+            <code class="small">{{ r.name }}</code>
+          </td>
+          <td>
+            {% for tag in r.tags.split(",") if tag.strip() %}
+            <span class="badge bg-secondary me-1" style="font-size:0.65rem">{{ tag.strip() }}</span>
+            {% endfor %}
+          </td>
+          <td><span class="text-muted small">{{ r.source }}</span></td>
+          <td class="text-muted small">{{ r.description }}</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-secondary py-0"
+                    onclick="showRule({{ r.id }}, {{ r.name|tojson }}, {{ r.content|tojson }})">
+              <i class="fa fa-eye"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-secondary py-0"
+                    onclick="editRule({{ r.id }}, {{ r.name|tojson }}, {{ r.description|tojson }}, {{ r.tags|tojson }}, {{ r.content|tojson }})">
+              <i class="fa fa-pencil"></i>
+            </button>
+            <form method="post" action="/yara/rules/{{ r.id }}/delete" class="d-inline"
+                  onsubmit="return confirm('Delete rule {{ r.name }}?')">
+              <button class="btn btn-sm btn-outline-danger py-0"><i class="fa fa-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <div class="card-body text-center text-muted py-5">
+    <i class="fa fa-shield-halved fa-2x mb-2 d-block"></i>
+    No Yara rules yet. Add a rule or load the built-in samples.
+  </div>
+</div>
+{% endif %}
+
+<!-- Add Rule Modal -->
+<div class="modal fade" id="addRuleModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark">
+      <div class="modal-header border-secondary">
+        <h6 class="modal-title"><i class="fa fa-plus me-2"></i>Add Yara Rule</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="/yara/rules">
+        <div class="modal-body">
+          <div class="row g-2 mb-2">
+            <div class="col-md-6">
+              <label class="form-label small">Rule name</label>
+              <input name="name" class="form-control form-control-sm" required
+                     value="{{ form_name or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Tags (comma-separated)</label>
+              <input name="tags" class="form-control form-control-sm"
+                     placeholder="malware,ransomware" value="{{ form_tags or '' }}">
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Description</label>
+            <input name="description" class="form-control form-control-sm"
+                   value="{{ form_desc or '' }}">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Rule content (YARA syntax)</label>
+            <textarea name="content" id="add-content" class="form-control font-monospace small"
+                      rows="14" required style="resize:vertical">{{ form_content or 'rule MyRule {\n    meta:\n        description = ""\n    strings:\n        $s1 = "example" ascii\n    condition:\n        any of them\n}' }}</textarea>
+          </div>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-primary">Save rule</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- View Rule Modal -->
+<div class="modal fade" id="viewRuleModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark">
+      <div class="modal-header border-secondary">
+        <h6 class="modal-title" id="viewRuleTitle"></h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <pre id="viewRuleContent" class="small p-3 rounded" style="background:#111;max-height:500px;overflow-y:auto"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Rule Modal -->
+<div class="modal fade" id="editRuleModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark">
+      <div class="modal-header border-secondary">
+        <h6 class="modal-title">Edit Yara Rule</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" id="editRuleForm" action="">
+        <div class="modal-body">
+          <div class="row g-2 mb-2">
+            <div class="col-md-6">
+              <label class="form-label small">Rule name</label>
+              <input name="name" id="edit-name" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Tags</label>
+              <input name="tags" id="edit-tags" class="form-control form-control-sm">
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Description</label>
+            <input name="description" id="edit-desc" class="form-control form-control-sm">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Rule content</label>
+            <textarea name="content" id="edit-content" class="form-control font-monospace small"
+                      rows="14" style="resize:vertical"></textarea>
+          </div>
+          <input type="hidden" name="_method" value="PUT">
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-primary">Save changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function showRule(id, name, content) {
+  document.getElementById('viewRuleTitle').textContent = name;
+  document.getElementById('viewRuleContent').textContent = content;
+  new bootstrap.Modal(document.getElementById('viewRuleModal')).show();
+}
+function editRule(id, name, desc, tags, content) {
+  document.getElementById('editRuleForm').action = '/yara/rules/' + id + '/edit';
+  document.getElementById('edit-name').value    = name;
+  document.getElementById('edit-desc').value    = desc;
+  document.getElementById('edit-tags').value    = tags;
+  document.getElementById('edit-content').value = content;
+  new bootstrap.Modal(document.getElementById('editRuleModal')).show();
+}
+{% if error %}
+new bootstrap.Modal(document.getElementById('addRuleModal')).show();
+{% endif %}
+</script>
+{% endblock %}

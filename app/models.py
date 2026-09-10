@@ -94,8 +94,10 @@ class Case(Base):
     evidence       = relationship("Evidence",       back_populates="case", cascade="all, delete-orphan")
     audit_logs     = relationship("AuditLog",       back_populates="case", cascade="all, delete-orphan")
     reports        = relationship("Report",         back_populates="case", cascade="all, delete-orphan")
-    pipeline_runs  = relationship("PipelineRun",    back_populates="case", cascade="all, delete-orphan",
-                                  order_by="PipelineRun.started_at.desc()")
+    pipeline_runs      = relationship("PipelineRun",      back_populates="case", cascade="all, delete-orphan",
+                                      order_by="PipelineRun.started_at.desc()")
+    yara_scan_results  = relationship("YaraScanResult",   back_populates="case", cascade="all, delete-orphan",
+                                      order_by="YaraScanResult.scanned_at.desc()")
 
 
 class Investigator(Base):
@@ -179,6 +181,34 @@ class CoCEntry(Base):
     notes       = Column(Text, default="")
 
     evidence = relationship("Evidence", back_populates="coc_entries")
+
+
+class YaraRule(Base):
+    __tablename__ = "yara_rules"
+
+    id          = Column(Integer, primary_key=True)
+    name        = Column(String(255), nullable=False)
+    description = Column(String(500), default="")
+    content     = Column(Text, nullable=False)
+    enabled     = Column(Integer, default=1)   # 1 = active
+    source      = Column(String(100), default="custom")  # custom | sample
+    tags        = Column(String(255), default="")
+    created_at  = Column(DateTime, default=datetime.utcnow)
+    updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class YaraScanResult(Base):
+    __tablename__ = "yara_scan_results"
+
+    id           = Column(Integer, primary_key=True)
+    case_id      = Column(Integer, ForeignKey("cases.id"), nullable=False)
+    scanned_at   = Column(DateTime, default=datetime.utcnow)
+    scanned_by   = Column(String(255), default="")
+    file_count   = Column(Integer, default=0)
+    match_count  = Column(Integer, default=0)
+    results_json = Column(Text, default="[]")
+
+    case = relationship("Case", back_populates="yara_scan_results")
 
 
 class PipelineRun(Base):

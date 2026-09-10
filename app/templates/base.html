@@ -62,6 +62,11 @@
         <i class="fa fa-building"></i> Agency
       </a>
     </li>
+    <li class="nav-item">
+      <a class="nav-link {% if '/yara' in request.url.path %}active{% endif %}" href="/yara">
+        <i class="fa fa-shield-halved"></i> Yara Rules
+      </a>
+    </li>
   </ul>
   <div class="mt-auto p-3">
     {# Quick search #}

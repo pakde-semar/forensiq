@@ -46,6 +46,13 @@ PIPELINES: dict[str, dict] = {
         "auto_on":     [],
         "modules":     ["ioc_extract", "misp_push"],
     },
+    "yara_scan": {
+        "label":       "Yara Scan",
+        "icon":        "fa-shield-halved",
+        "description": "Scan all evidence files against enabled Yara rules.",
+        "auto_on":     [],
+        "modules":     ["yara_scan"],
+    },
 }
 
 # ─── Module loader ─────────────────────────────────────────────────────────────
