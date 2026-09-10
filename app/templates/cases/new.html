@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}New Case — ForensiQ{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <a href="/cases/" class="text-muted text-decoration-none"><i class="fa fa-arrow-left me-1"></i>Back to Cases</a>
+</div>
+<h4 class="mb-4"><i class="fa fa-plus-circle me-2"></i>New Case</h4>
+
+<div class="card">
+  <div class="card-header">Case Details</div>
+  <div class="card-body">
+    <form method="post" action="/cases/new">
+      <div class="row g-3">
+        <div class="col-md-8">
+          <label class="form-label">Case Name <span class="text-danger">*</span></label>
+          <input type="text" name="name" class="form-control" required placeholder="e.g. Suspicious Email Campaign — Finance Dept">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Case Type</label>
+          <select name="case_type" class="form-select">
+            <option value="">— select —</option>
+            {% for t in case_types %}
+            <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Priority</label>
+          <select name="priority" class="form-select">
+            {% for p in priorities %}
+            <option value="{{ p }}" {% if p == "Medium" %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Classification</label>
+          <select name="classification" class="form-select">
+            {% for c in classifications %}
+            <option value="{{ c }}" {% if c == "Confidential" %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Lead Investigator</label>
+          <input type="text" name="investigator_name" class="form-control" placeholder="Full name">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Initial Notes</label>
+          <textarea name="notes" class="form-control" rows="4" placeholder="Incident summary, initial observations..."></textarea>
+        </div>
+        <div class="col-12 text-end">
+          <a href="/cases/" class="btn btn-outline-secondary me-2">Cancel</a>
+          <button type="submit" class="btn" style="background:#00bfae;color:#000;font-weight:600;">
+            <i class="fa fa-folder-plus me-1"></i> Create Case
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

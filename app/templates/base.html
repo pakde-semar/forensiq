@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ForensiQ{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <style>
+    :root {
+      --fq-sidebar: #161b22;
+      --fq-brand:   #00bfae;
+    }
+    body { background: #0d1117; color: #e6edf3; min-height: 100vh; }
+    .sidebar {
+      width: 220px; min-height: 100vh; background: var(--fq-sidebar);
+      border-right: 1px solid #30363d; position: fixed; top: 0; left: 0; padding-top: 1rem;
+    }
+    .sidebar .brand { color: var(--fq-brand); font-weight: 700; font-size: 1.2rem; padding: 0 1rem 1.5rem; }
+    .sidebar .nav-link { color: #8b949e; padding: .45rem 1rem; font-size: .9rem; border-radius: 6px; margin: 1px 8px; }
+    .sidebar .nav-link:hover, .sidebar .nav-link.active { background: #21262d; color: #e6edf3; }
+    .sidebar .nav-link i { width: 18px; text-align: center; margin-right: 8px; }
+    .main-content { margin-left: 220px; padding: 2rem; }
+    .card { background: #161b22; border: 1px solid #30363d; }
+    .card-header { background: #21262d; border-bottom: 1px solid #30363d; }
+    .table { --bs-table-bg: transparent; --bs-table-striped-bg: #21262d; }
+    .badge-priority-critical  { background:#dc3545; }
+    .badge-priority-high      { background:#fd7e14; }
+    .badge-priority-medium    { background:#ffc107; color:#000; }
+    .badge-priority-low       { background:#198754; }
+    .badge-priority-informational { background:#0dcaf0; color:#000; }
+    .status-open     { color:#58a6ff; }
+    .status-active   { color:#3fb950; }
+    .status-review   { color:#d29922; }
+    .status-closed   { color:#8b949e; }
+    .status-archived { color:#6e7681; }
+    .audit-entry { font-family: monospace; font-size: .8rem; color: #8b949e; border-left: 2px solid #30363d; padding-left: .5rem; }
+    .ev-hash { font-family: monospace; font-size: .75rem; color: #8b949e; }
+    .tab-content { padding-top: 1.5rem; }
+    .nav-tabs .nav-link { color: #8b949e; border-color: transparent; }
+    .nav-tabs .nav-link.active { color: #e6edf3; background: #161b22; border-color: #30363d #30363d #161b22; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<nav class="sidebar d-flex flex-column">
+  <div class="brand"><i class="fa fa-shield-halved me-2"></i>ForensiQ</div>
+  <ul class="nav flex-column">
+    <li class="nav-item">
+      <a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/">
+        <i class="fa fa-gauge"></i> Dashboard
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if '/cases' in request.url.path %}active{% endif %}" href="/cases/">
+        <i class="fa fa-folder-open"></i> Cases
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if '/agency' in request.url.path %}active{% endif %}" href="/agency/">
+        <i class="fa fa-building"></i> Agency
+      </a>
+    </li>
+  </ul>
+  <div class="mt-auto p-3" style="font-size:.75rem;color:#6e7681;">
+    ForensiQ v0.1
+  </div>
+</nav>
+
+<div class="main-content">
+  {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

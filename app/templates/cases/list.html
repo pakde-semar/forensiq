@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Cases — ForensiQ{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0"><i class="fa fa-folder-open me-2"></i>Cases</h4>
+  <a href="/cases/new" class="btn btn-sm" style="background:#00bfae;color:#000;font-weight:600;">
+    <i class="fa fa-plus me-1"></i> New Case
+  </a>
+</div>
+
+{% if not cases %}
+<div class="card text-center py-5">
+  <div class="card-body">
+    <i class="fa fa-folder-open fa-3x mb-3" style="color:#30363d;"></i>
+    <p class="text-muted">No cases yet. <a href="/cases/new">Create the first one.</a></p>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Case #</th>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Priority</th>
+          <th>Status</th>
+          <th>Evidence</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in cases %}
+        <tr>
+          <td><code>{{ c.case_number }}</code></td>
+          <td><strong>{{ c.name }}</strong></td>
+          <td><small>{{ c.case_type or "—" }}</small></td>
+          <td>
+            <span class="badge badge-priority-{{ c.priority | lower }}">{{ c.priority }}</span>
+          </td>
+          <td>
+            <span class="status-{{ c.status | lower }}">
+              <i class="fa fa-circle" style="font-size:.6rem;"></i> {{ c.status }}
+            </span>
+          </td>
+          <td>{{ c.evidence | length }}</td>
+          <td><small>{{ c.created_at.strftime("%Y-%m-%d") }}</small></td>
+          <td>
+            <a href="/cases/{{ c.id }}" class="btn btn-sm btn-outline-secondary">
+              <i class="fa fa-arrow-right"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

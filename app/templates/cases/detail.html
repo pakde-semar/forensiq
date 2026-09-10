@@ -1,0 +1,689 @@
+{% extends "base.html" %}
+{% block title %}{{ case.case_number }} — ForensiQ{% endblock %}
+{% block content %}
+
+{# ── Header ── #}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <a href="/cases/" class="text-muted text-decoration-none small"><i class="fa fa-arrow-left me-1"></i>Cases</a>
+    <h4 class="mt-1 mb-0">{{ case.name }}</h4>
+    <small class="text-muted">
+      <code>{{ case.case_number }}</code> &nbsp;·&nbsp;
+      {{ case.case_type or "No type" }} &nbsp;·&nbsp;
+      <span class="badge badge-priority-{{ case.priority | lower }}">{{ case.priority }}</span> &nbsp;·&nbsp;
+      <span class="status-{{ case.status | lower }}">{{ case.status }}</span>
+    </small>
+  </div>
+  <div class="d-flex gap-2">
+    {# Status change #}
+    <div class="dropdown">
+      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+        <i class="fa fa-tag me-1"></i>Status
+      </button>
+      <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
+        {% for s in ["Open","Active","Review","Closed","Archived"] %}
+        <li>
+          <form method="post" action="/cases/{{ case.id }}/status">
+            <input type="hidden" name="status" value="{{ s }}">
+            <button type="submit" class="dropdown-item {% if case.status == s %}active{% endif %}">{{ s }}</button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {# Generate report #}
+    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalReport">
+      <i class="fa fa-file-pdf me-1"></i>Generate Report
+    </button>
+  </div>
+</div>
+
+{# ── Tabs ── #}
+<ul class="nav nav-tabs" id="caseTabs">
+  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-overview"><i class="fa fa-info-circle me-1"></i>Overview</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-evidence" id="evidence"><i class="fa fa-box-archive me-1"></i>Evidence <span class="badge bg-secondary">{{ case.evidence | length }}</span></a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-team"><i class="fa fa-users me-1"></i>Team</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-reports"><i class="fa fa-file-lines me-1"></i>Reports</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-audit"><i class="fa fa-clock-rotate-left me-1"></i>Audit Log</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-integrations"><i class="fa fa-plug me-1"></i>Integrations</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-pipeline"><i class="fa fa-sitemap me-1"></i>Pipeline</a></li>
+  {% for p in plugins %}
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-plugin-{{ loop.index }}"><i class="fa {{ p.icon }} me-1"></i>{{ p.label }}</a></li>
+  {% endfor %}
+</ul>
+
+<div class="tab-content" id="caseTabsContent">
+
+  {# ── Overview ── #}
+  <div class="tab-pane fade show active" id="tab-overview">
+    <div class="row g-3">
+      <div class="col-md-8">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="fa fa-note-sticky me-1"></i>Notes</span>
+            <div class="d-flex gap-1">
+              {# Markdown toolbar #}
+              <button type="button" class="btn btn-xs btn-outline-secondary py-0" onclick="mdWrap('**','**')" title="Bold"><b>B</b></button>
+              <button type="button" class="btn btn-xs btn-outline-secondary py-0" onclick="mdWrap('*','*')" title="Italic"><i>I</i></button>
+              <button type="button" class="btn btn-xs btn-outline-secondary py-0" onclick="mdWrap('`','`')" title="Code"><i class="fa fa-code fa-xs"></i></button>
+              <button type="button" class="btn btn-xs btn-outline-secondary py-0" onclick="mdInsertLine('## ')" title="Heading">H</button>
+              <button type="button" class="btn btn-xs btn-outline-secondary py-0" onclick="mdInsertLine('- ')" title="List"><i class="fa fa-list fa-xs"></i></button>
+              <div class="vr mx-1"></div>
+              <button type="button" class="btn btn-xs btn-outline-secondary py-0" onclick="mdTogglePreview()" title="Preview" id="md-preview-btn">
+                <i class="fa fa-eye fa-xs"></i> Preview
+              </button>
+              <form method="post" action="/cases/{{ case.id }}/reports/generate-notes-md" class="d-inline">
+                <button type="submit" class="btn btn-xs btn-outline-secondary py-0" title="Generate Markdown template from case data">
+                  <i class="fa fa-wand-magic-sparkles fa-xs"></i> Generate
+                </button>
+              </form>
+            </div>
+          </div>
+          <div class="card-body p-0">
+            <form method="post" action="/cases/{{ case.id }}/notes" id="notes-form">
+              <textarea name="notes" id="notes-editor" class="form-control border-0 rounded-0 mb-0"
+                        rows="14" style="font-family:monospace;resize:vertical">{{ case.notes or "" }}</textarea>
+              <div id="notes-preview" class="p-3 prose-dark" style="display:none;min-height:200px;overflow-y:auto"></div>
+              <div class="d-flex justify-content-end p-2 border-top border-secondary">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                  <i class="fa fa-floppy-disk me-1"></i>Save Notes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card mb-3">
+          <div class="card-header">Case Info</div>
+          <div class="card-body small">
+            <table class="table table-sm mb-0">
+              <tr><th class="text-muted">Number</th><td><code>{{ case.case_number }}</code></td></tr>
+              <tr><th class="text-muted">Type</th><td>{{ case.case_type or "—" }}</td></tr>
+              <tr><th class="text-muted">Classification</th><td>{{ case.classification }}</td></tr>
+              <tr><th class="text-muted">Created</th><td>{{ case.created_at.strftime("%Y-%m-%d %H:%M") }}</td></tr>
+              <tr><th class="text-muted">Updated</th><td>{{ case.updated_at.strftime("%Y-%m-%d %H:%M") }}</td></tr>
+              {% if case.closed_at %}
+              <tr><th class="text-muted">Closed</th><td>{{ case.closed_at.strftime("%Y-%m-%d %H:%M") }}</td></tr>
+              {% endif %}
+              {% if case.flowintel_case_id %}
+              <tr><th class="text-muted">Flowintel</th><td><a href="http://192.168.1.171/case/{{ case.flowintel_case_id }}" target="_blank">#{{ case.flowintel_case_id }}</a></td></tr>
+              {% endif %}
+              {% if case.misp_event_id %}
+              <tr><th class="text-muted">MISP</th><td><code>{{ case.misp_event_id }}</code></td></tr>
+              {% endif %}
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Investigators</div>
+          <div class="card-body">
+            {% for inv in case.investigators %}
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span><i class="fa fa-user me-1 text-muted"></i>{{ inv.name }}{% if inv.is_lead %} <span class="badge bg-primary" style="font-size:.65rem;">Lead</span>{% endif %}</span>
+              <small class="text-muted">{{ inv.timeclock_minutes }}m</small>
+            </div>
+            {% else %}
+            <small class="text-muted">No investigators assigned.</small>
+            {% endfor %}
+            <hr>
+            <form method="post" action="/cases/{{ case.id }}/investigator" class="mt-2">
+              <div class="input-group input-group-sm">
+                <input type="text" name="name" class="form-control" placeholder="Add investigator...">
+                <button type="submit" class="btn btn-outline-secondary">Add</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Evidence ── #}
+  <div class="tab-pane fade" id="tab-evidence">
+    <div class="card mb-3">
+      <div class="card-header"><i class="fa fa-upload me-1"></i>Add Evidence</div>
+      <div class="card-body">
+        <form method="post" action="/cases/{{ case.id }}/evidence/upload" enctype="multipart/form-data">
+          <div class="row g-2">
+            <div class="col-md-4">
+              <select name="category" class="form-select form-select-sm">
+                {% for cat in categories %}
+                <option value="{{ cat }}">{{ cat }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <input type="text" name="submitter" class="form-control form-control-sm" placeholder="Submitter name">
+            </div>
+            <div class="col-md-3">
+              <input type="text" name="orig_loc" class="form-control form-control-sm" placeholder="Original location">
+            </div>
+            <div class="col-md-2 d-grid">
+              <label class="btn btn-sm btn-outline-secondary">
+                <i class="fa fa-file-arrow-up me-1"></i>Choose File
+                <input type="file" name="file" required style="display:none;" onchange="this.parentElement.querySelector('span')?.remove(); this.parentElement.insertAdjacentHTML('beforeend','<span class=ms-1>'+this.files[0].name+'</span>')">
+              </label>
+            </div>
+            <div class="col-12">
+              <input type="text" name="notes" class="form-control form-control-sm" placeholder="Notes (optional)">
+            </div>
+            <div class="col-12 text-end">
+              <button type="submit" class="btn btn-sm" style="background:#00bfae;color:#000;font-weight:600;">Upload Evidence</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Ev#</th><th>CoC#</th><th>File</th><th>Category</th>
+              <th>Size</th><th>Submitter</th><th>Added</th><th>Verified</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ev in case.evidence %}
+            <tr>
+              <td><code>{{ ev.evidence_number }}</code></td>
+              <td><code>{{ ev.coc_number }}</code></td>
+              <td>
+                <strong>{{ ev.file_name }}</strong><br>
+                <span class="ev-hash">MD5: {{ ev.md5 }}</span><br>
+                <span class="ev-hash">SHA256: {{ ev.sha256[:32] }}…</span>
+                {% if ev.notes %}<br><small class="text-muted">{{ ev.notes }}</small>{% endif %}
+              </td>
+              <td><small>{{ ev.category }}</small></td>
+              <td><small>{{ "%.1f"|format(ev.file_size/1024) }} KB</small></td>
+              <td><small>{{ ev.submitter or "—" }}</small></td>
+              <td><small>{{ ev.date_added.strftime("%Y-%m-%d") }}</small></td>
+              <td>
+                {% if ev.verified_at %}
+                <span class="text-success"><i class="fa fa-check-circle"></i></span>
+                <small class="text-muted">{{ ev.verified_at.strftime("%m-%d") }}</small>
+                {% else %}
+                <form method="post" action="/cases/{{ case.id }}/evidence/{{ ev.id }}/verify" class="d-inline">
+                  <button type="submit" class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:1px 6px;">Verify</button>
+                </form>
+                {% endif %}
+              </td>
+              <td>
+                <form method="post" action="/cases/{{ case.id }}/evidence/{{ ev.id }}/delete"
+                      onsubmit="return confirm('Remove evidence {{ ev.evidence_number }}?')" class="d-inline">
+                  <button type="submit" class="btn btn-xs btn-outline-danger" style="font-size:.75rem;padding:1px 6px;">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="text-center text-muted py-4">No evidence uploaded yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {# ── Team ── #}
+  <div class="tab-pane fade" id="tab-team">
+    <div class="row g-3">
+      {% for inv in case.investigators %}
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-body">
+            <h6>{{ inv.name }} {% if inv.is_lead %}<span class="badge bg-primary">Lead</span>{% endif %}</h6>
+            <small class="text-muted">{{ inv.email or "No email" }}</small><br>
+            <small>Time logged: <strong>{{ inv.timeclock_minutes }} min</strong></small>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="col-12 text-muted">No team members assigned.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Reports ── #}
+  <div class="tab-pane fade" id="tab-reports">
+    {% if case.reports %}
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Title</th><th>Format</th><th>Created</th><th>By</th><th></th></tr></thead>
+          <tbody>
+            {% for r in case.reports %}
+            <tr>
+              <td>{{ r.title }}</td>
+              <td><span class="badge bg-secondary">{{ r.format }}</span></td>
+              <td><small>{{ r.created_at.strftime("%Y-%m-%d %H:%M") }}</small></td>
+              <td><small>{{ r.created_by or "—" }}</small></td>
+              <td class="d-flex gap-1 flex-wrap">
+                {% if r.format != "obsidian" %}
+                <a href="/cases/{{ case.id }}/reports/{{ r.id }}/download"
+                   class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:1px 8px;">
+                  <i class="fa fa-code me-1"></i>HTML
+                </a>
+                <a href="/cases/{{ case.id }}/reports/{{ r.id }}/download-pdf"
+                   class="btn btn-xs btn-outline-danger" style="font-size:.75rem;padding:1px 8px;">
+                  <i class="fa fa-file-pdf me-1"></i>PDF
+                </a>
+                {% else %}
+                <a href="/cases/{{ case.id }}/reports/{{ r.id }}/download-md"
+                   class="btn btn-xs btn-outline-info" style="font-size:.75rem;padding:1px 8px;">
+                  <i class="fa fa-brands fa-markdown me-1"></i>Download .md
+                </a>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <p class="text-muted">No reports generated yet. Use the Generate Report button above.</p>
+    {% endif %}
+  </div>
+
+  {# ── Audit Log ── #}
+  <div class="tab-pane fade" id="tab-audit">
+    <div class="card">
+      <div class="card-body" style="max-height:500px;overflow-y:auto;">
+        {% for log in audit_logs %}
+        <div class="audit-entry mb-2">
+          <span class="text-muted">{{ log.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</span>
+          <span class="badge bg-secondary ms-1" style="font-size:.65rem;">{{ log.app_name }}</span>
+          {% if log.investigator %}
+          <span class="text-muted ms-1">{{ log.investigator }}</span>
+          {% endif %}
+          <br>{{ log.message }}
+        </div>
+        {% else %}
+        <p class="text-muted">No audit entries yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {# ── Integrations ── #}
+  <div class="tab-pane fade" id="tab-integrations">
+    <div class="row g-3">
+
+      {# Flowintel panel #}
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-header d-flex align-items-center gap-2">
+            <i class="fa fa-diagram-project" style="color:#00bfae;"></i>
+            <strong>Flowintel</strong>
+            {% if case.flowintel_case_id %}
+            <a href="http://192.168.1.171/case/{{ case.flowintel_case_id }}"
+               target="_blank" class="badge bg-success ms-auto text-decoration-none">
+              Case #{{ case.flowintel_case_id }} <i class="fa fa-arrow-up-right-from-square fa-xs"></i>
+            </a>
+            {% endif %}
+          </div>
+          <div class="card-body">
+            {% if not case.flowintel_case_id %}
+            <p class="text-muted small">Not linked to any Flowintel case.</p>
+            <div class="d-flex gap-2 flex-wrap">
+              {# Link existing #}
+              <form method="post" action="/cases/{{ case.id }}/integrations/flowintel/link" class="d-flex gap-1">
+                <input type="number" name="flowintel_case_id" class="form-control form-control-sm"
+                       placeholder="Flowintel case ID" style="width:160px;" required>
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Link</button>
+              </form>
+              {# Create new #}
+              <form method="post" action="/cases/{{ case.id }}/integrations/flowintel/create">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                  <i class="fa fa-plus me-1"></i>Create in Flowintel
+                </button>
+              </form>
+            </div>
+            {% else %}
+            <div class="mb-3">
+              <table class="table table-sm mb-0">
+                <tr><th class="text-muted">Flowintel ID</th><td>#{{ case.flowintel_case_id }}</td></tr>
+              </table>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <form method="post" action="/cases/{{ case.id }}/integrations/flowintel/sync">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                  <i class="fa fa-rotate me-1"></i>Sync Notes
+                </button>
+              </form>
+              <a href="/cases/{{ case.id }}/integrations/flowintel/observables"
+                 class="btn btn-sm btn-outline-secondary" target="_blank">
+                <i class="fa fa-list me-1"></i>View IOCs
+              </a>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {# MISP panel #}
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-header d-flex align-items-center gap-2">
+            <i class="fa fa-shield-virus" style="color:#e63946;"></i>
+            <strong>MISP</strong>
+            {% if case.misp_event_id %}
+            <a href="https://ronda.iww.web.id/events/view/{{ case.misp_event_id }}"
+               target="_blank" class="badge bg-danger ms-auto text-decoration-none">
+              Event #{{ case.misp_event_id }} <i class="fa fa-arrow-up-right-from-square fa-xs"></i>
+            </a>
+            {% endif %}
+          </div>
+          <div class="card-body">
+            {% if not case.misp_event_id %}
+            <p class="text-muted small">Not linked to any MISP event.</p>
+            <div class="d-flex gap-2 flex-wrap">
+              <form method="post" action="/cases/{{ case.id }}/integrations/misp/link" class="d-flex gap-1">
+                <input type="text" name="misp_event_id" class="form-control form-control-sm"
+                       placeholder="Event ID or UUID" style="width:180px;" required>
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Link</button>
+              </form>
+              <form method="post" action="/cases/{{ case.id }}/integrations/misp/create">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                  <i class="fa fa-plus me-1"></i>Create in MISP
+                </button>
+              </form>
+            </div>
+            {% else %}
+            <div class="mb-3">
+              <table class="table table-sm mb-0">
+                <tr><th class="text-muted">MISP Event</th><td>#{{ case.misp_event_id }}</td></tr>
+              </table>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <form method="post" action="/cases/{{ case.id }}/integrations/misp/pull_iocs">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                  <i class="fa fa-download me-1"></i>Pull IOCs
+                </button>
+              </form>
+              <form method="post" action="/cases/{{ case.id }}/integrations/misp/publish"
+                    onsubmit="return confirm('Publish MISP event {{ case.misp_event_id }}? This shares it with the community.')">
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <i class="fa fa-share-from-square me-1"></i>Publish Event
+                </button>
+              </form>
+            </div>
+            {% if case.evidence %}
+            <hr>
+            <p class="small text-muted mb-1">Push evidence hash to MISP:</p>
+            {% for ev in case.evidence %}
+            <form method="post" action="/cases/{{ case.id }}/integrations/misp/push_hash"
+                  class="d-flex align-items-center gap-2 mb-1">
+              <input type="hidden" name="ev_id" value="{{ ev.id }}">
+              <code class="small flex-grow-1">{{ ev.evidence_number }} — {{ ev.file_name }}</code>
+              <button type="submit" class="btn btn-xs btn-outline-secondary" style="font-size:.7rem;padding:1px 6px;">
+                Push Hash
+              </button>
+            </form>
+            {% endfor %}
+            {% endif %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  {# ── Pipeline Tab ── #}
+  <div class="tab-pane fade" id="tab-pipeline">
+    <div class="row g-3 mt-1">
+
+      {# Available pipelines #}
+      <div class="col-md-5">
+        <h6 class="mb-2"><i class="fa fa-sitemap me-1"></i>Available Pipelines</h6>
+        {% for name, p in PIPELINES.items() %}
+        <div class="card mb-2">
+          <div class="card-body py-2 px-3">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <i class="fa {{ p.icon }} text-info"></i>
+              <strong class="small">{{ p.label }}</strong>
+              {% if p.auto_on %}
+              <span class="badge bg-secondary ms-auto">Auto</span>
+              {% endif %}
+            </div>
+            <div class="text-muted small mb-2">{{ p.description }}</div>
+            <div class="d-flex align-items-center gap-2">
+              <div class="small text-muted">
+                {% for m in p.modules %}<span class="badge bg-dark border border-secondary me-1">{{ m }}</span>{% endfor %}
+              </div>
+              <form method="post" action="/cases/{{ case.id }}/pipeline/run" class="ms-auto d-flex gap-1">
+                <input type="hidden" name="pipeline_name" value="{{ name }}">
+                <input type="text" name="investigator" class="form-control form-control-sm py-0"
+                       placeholder="by…" style="width:90px">
+                <button type="submit" class="btn btn-sm btn-outline-info py-0">
+                  <i class="fa fa-play"></i>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      {# Run history #}
+      <div class="col-md-7">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="mb-0"><i class="fa fa-clock-rotate-left me-1"></i>Run History</h6>
+          <button class="btn btn-sm btn-outline-secondary py-0" onclick="plRefresh()">
+            <i class="fa fa-rotate"></i>
+          </button>
+        </div>
+        <div id="pl-history">
+        {% if pl_runs %}
+        {% for run in pl_runs %}
+        <div class="card mb-2" id="plrun-{{ run.id }}">
+          <div class="card-body py-2 px-3">
+            <div class="d-flex align-items-center gap-2">
+              {% if run.status == "running" %}
+              <span class="badge bg-primary"><span class="spinner-border spinner-border-sm me-1" style="width:.6rem;height:.6rem"></span>Running</span>
+              {% elif run.status == "done" %}
+              <span class="badge bg-success">Done</span>
+              {% else %}
+              <span class="badge bg-danger">Error</span>
+              {% endif %}
+              <strong class="small">{{ run.pipeline_label }}</strong>
+              <span class="text-muted small ms-auto">{{ run.started_at.strftime("%m-%d %H:%M") }}</span>
+              {% if run.risk_score is not none %}
+              <span class="badge {% if run.risk_score >= 80 %}bg-danger{% elif run.risk_score >= 55 %}bg-warning text-dark{% elif run.risk_score >= 30 %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+                Risk {{ run.risk_score|int }}
+              </span>
+              {% endif %}
+            </div>
+            <div class="small text-muted">
+              {{ run.input_type }}: {{ run.input_ref[:60] }} · by {{ run.triggered_by }}
+            </div>
+            <button class="btn btn-link btn-sm py-0 px-0 text-muted small" onclick="plSteps({{ run.id }})">
+              <i class="fa fa-chevron-down me-1"></i>Details
+            </button>
+            <div id="plsteps-{{ run.id }}" style="display:none" class="mt-2"></div>
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-muted small">No pipeline runs yet. Upload evidence to trigger auto-run, or click Play on a pipeline above.</p>
+        {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  {# ── Plugin Tabs ── #}
+  {% for p in plugins %}
+  <div class="tab-pane fade" id="tab-plugin-{{ loop.index }}">
+    {{ p.module.render_tab(case) | safe if p.module.render_tab is defined else "<p class='text-muted'>Plugin has no render_tab().</p>" }}
+  </div>
+  {% endfor %}
+
+</div>
+
+{# ── Generate Report Modal ── #}
+<div class="modal fade" id="modalReport" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark border-secondary">
+      <form method="post" action="/cases/{{ case.id }}/reports/generate">
+        <div class="modal-header border-secondary">
+          <h5 class="modal-title"><i class="fa fa-file-pdf me-2"></i>Generate Report</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label small">Report Title</label>
+            <input type="text" name="title" class="form-control"
+                   value="Case Report — {{ case.case_number }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small">Prepared By</label>
+            <input type="text" name="created_by" class="form-control" placeholder="Investigator name">
+          </div>
+          <p class="small text-muted mb-0">
+            <i class="fa fa-circle-info me-1"></i>
+            Generates both <strong>HTML</strong> and <strong>PDF</strong> formats simultaneously.
+          </p>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger btn-sm">
+            <i class="fa fa-file-pdf me-1"></i>HTML + PDF
+          </button>
+        </div>
+      </form>
+      <hr class="my-0 border-secondary">
+      <form method="post" action="/cases/{{ case.id }}/reports/generate-obsidian">
+        <div class="modal-body pt-2">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="fa fa-brands fa-markdown text-info"></i>
+            <strong class="small">Obsidian Export</strong>
+          </div>
+          <div class="mb-2">
+            <input type="text" name="created_by" class="form-control form-control-sm" placeholder="Prepared by…">
+          </div>
+          <p class="small text-muted mb-0">Generates a <code>.md</code> note with YAML frontmatter, callouts, and wikilinks — ready to drop into an Obsidian vault.</p>
+        </div>
+        <div class="modal-footer border-secondary pt-1">
+          <button type="submit" class="btn btn-info btn-sm w-100">
+            <i class="fa fa-brands fa-markdown me-1"></i>Generate Obsidian Note
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Jump to correct tab on page load if anchor present
+  const hash = window.location.hash;
+  if (hash) {
+    const tab = document.querySelector(`.nav-link[href="${hash}"]`) || document.querySelector(`[data-bs-toggle="tab"][href="${hash}"]`);
+    if (tab) new bootstrap.Tab(tab).show();
+  }
+
+  // ── Markdown editor ──────────────────────────────────────────────
+  let mdPreviewOn = false;
+  function mdTogglePreview() {
+    const editor  = document.getElementById('notes-editor');
+    const preview = document.getElementById('notes-preview');
+    const btn     = document.getElementById('md-preview-btn');
+    mdPreviewOn = !mdPreviewOn;
+    if (mdPreviewOn) {
+      preview.innerHTML = marked.parse(editor.value || '*empty*');
+      editor.style.display  = 'none';
+      preview.style.display = '';
+      btn.innerHTML = '<i class="fa fa-pen fa-xs"></i> Edit';
+    } else {
+      editor.style.display  = '';
+      preview.style.display = 'none';
+      btn.innerHTML = '<i class="fa fa-eye fa-xs"></i> Preview';
+    }
+  }
+
+  function mdWrap(before, after) {
+    const ta  = document.getElementById('notes-editor');
+    const s   = ta.selectionStart;
+    const e   = ta.selectionEnd;
+    const sel = ta.value.substring(s, e) || 'text';
+    ta.value  = ta.value.substring(0, s) + before + sel + after + ta.value.substring(e);
+    ta.focus();
+    ta.setSelectionRange(s + before.length, s + before.length + sel.length);
+  }
+
+  function mdInsertLine(prefix) {
+    const ta    = document.getElementById('notes-editor');
+    const pos   = ta.selectionStart;
+    const lines = ta.value.substring(0, pos).split('\n');
+    const lineStart = ta.value.lastIndexOf('\n', pos - 1) + 1;
+    ta.value  = ta.value.substring(0, lineStart) + prefix + ta.value.substring(lineStart);
+    ta.focus();
+    ta.setSelectionRange(lineStart + prefix.length, lineStart + prefix.length);
+  }
+
+  // ── Pipeline helpers ──────────────────────────────────────────────
+  async function plSteps(runId) {
+    const div = document.getElementById('plsteps-' + runId);
+    if (div.style.display !== 'none') { div.style.display = 'none'; return; }
+    div.style.display = '';
+    div.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Loading…';
+    try {
+      const r    = await fetch(`/cases/{{ case.id }}/pipeline/runs/${runId}/steps`);
+      const data = await r.json();
+      const BADGE = { critical:'danger', warning:'warning', info:'secondary', error:'danger' };
+      let html = '';
+      for (const step of (data.steps || [])) {
+        const sc = step.status === 'done' ? 'success' : step.status === 'error' ? 'danger' : step.status === 'skipped' ? 'secondary' : 'primary';
+        html += `<div class="mb-1 ps-2 border-start border-secondary">
+          <span class="badge bg-${sc} me-1">${step.status}</span>
+          <i class="fa ${step.icon} me-1 small"></i>
+          <strong class="small">${step.label}</strong>
+          <span class="text-muted small ms-2">${step.ms}ms</span>`;
+        for (const f of (step.findings || [])) {
+          html += `<div class="small ms-3"><span class="badge bg-${BADGE[f.type]||'secondary'} me-1">${f.type}</span>${f.title}${f.detail ? ' — ' + f.detail : ''}</div>`;
+        }
+        html += `</div>`;
+      }
+      div.innerHTML = html || '<span class="text-muted small">No steps.</span>';
+    } catch(e) {
+      div.innerHTML = `<span class="text-danger small">${e}</span>`;
+    }
+  }
+
+  // Auto-refresh pipeline history if any run is in "running" state
+  function plHasRunning() {
+    return document.querySelectorAll('#pl-history .badge.bg-primary').length > 0;
+  }
+  function plRefresh() { window.location.reload(); }
+  if (plHasRunning()) {
+    setTimeout(() => { if (plHasRunning()) window.location.reload(); }, 4000);
+  }
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+  /* Markdown preview dark prose */
+  .prose-dark { color: #cdd6f4; line-height: 1.7; font-size: .92rem; }
+  .prose-dark h1,.prose-dark h2,.prose-dark h3 { color: #89b4fa; margin-top: 1em; }
+  .prose-dark h2 { border-bottom: 1px solid #313244; padding-bottom: .3em; }
+  .prose-dark code { background: #313244; color: #a6e3a1; padding: 1px 5px; border-radius: 4px; font-size: .85em; }
+  .prose-dark pre  { background: #1e1e2e; border: 1px solid #313244; padding: 12px; border-radius: 6px; overflow-x: auto; }
+  .prose-dark pre code { background: none; padding: 0; }
+  .prose-dark table { width: 100%; border-collapse: collapse; margin: .8em 0; }
+  .prose-dark th, .prose-dark td { border: 1px solid #45475a; padding: 5px 10px; }
+  .prose-dark th { background: #313244; }
+  .prose-dark blockquote { border-left: 3px solid #89b4fa; margin: 0; padding: 4px 12px; color: #a6adc8; }
+  .prose-dark a { color: #89dceb; }
+  .prose-dark hr { border-color: #313244; }
+  .prose-dark ul, .prose-dark ol { padding-left: 1.4em; }
+</style>
+{% endblock %}

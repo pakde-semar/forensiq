@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Agency Settings — ForensiQ{% endblock %}
+{% block content %}
+<h4 class="mb-4"><i class="fa fa-building me-2"></i>Agency Settings</h4>
+<div class="card">
+  <div class="card-body">
+    <form method="post" action="/agency/">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Agency Name</label>
+          <input type="text" name="name" class="form-control" value="{{ agency.name }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Unit / Division</label>
+          <input type="text" name="unit" class="form-control" value="{{ agency.unit }}">
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">Address</label>
+          <input type="text" name="address" class="form-control" value="{{ agency.address }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">City</label>
+          <input type="text" name="city" class="form-control" value="{{ agency.city }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Country</label>
+          <input type="text" name="country" class="form-control" value="{{ agency.country }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Phone</label>
+          <input type="text" name="phone" class="form-control" value="{{ agency.phone }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-control" value="{{ agency.email }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Website</label>
+          <input type="text" name="website" class="form-control" value="{{ agency.website }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Case Prefix</label>
+          <input type="text" name="case_prefix" class="form-control" value="{{ agency.case_prefix }}" placeholder="CASE">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Evidence Intake Email</label>
+          <input type="email" name="evidence_intake_email" class="form-control" value="{{ agency.evidence_intake_email }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Supervisor / Approver</label>
+          <input type="text" name="supervisor_name" class="form-control" value="{{ agency.supervisor_name }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Supervisor Title</label>
+          <input type="text" name="supervisor_title" class="form-control" value="{{ agency.supervisor_title }}">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Legal Records Custodian</label>
+          <input type="text" name="legal_records_custodian" class="form-control" value="{{ agency.legal_records_custodian }}">
+        </div>
+        <div class="col-12 text-end">
+          <button type="submit" class="btn" style="background:#00bfae;color:#000;font-weight:600;">
+            <i class="fa fa-save me-1"></i>Save Settings
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
