@@ -100,6 +100,8 @@ class Case(Base):
                                       order_by="YaraScanResult.scanned_at.desc()")
     hash_verify_batches = relationship("HashVerifyBatch", back_populates="case", cascade="all, delete-orphan",
                                        order_by="HashVerifyBatch.run_at.desc()")
+    time_entries        = relationship("TimeEntry",        back_populates="case", cascade="all, delete-orphan",
+                                       order_by="TimeEntry.clock_in.desc()")
 
 
 class Investigator(Base):
@@ -113,7 +115,10 @@ class Investigator(Base):
     is_lead          = Column(Integer, default=0)  # 1 = lead investigator
     added_at         = Column(DateTime, default=datetime.utcnow)
 
-    case = relationship("Case", back_populates="investigators")
+    case         = relationship("Case", back_populates="investigators")
+    time_entries = relationship("TimeEntry", back_populates="investigator",
+                                cascade="all, delete-orphan",
+                                order_by="TimeEntry.clock_in.desc()")
 
 
 class Evidence(Base):
@@ -183,6 +188,22 @@ class CoCEntry(Base):
     notes       = Column(Text, default="")
 
     evidence = relationship("Evidence", back_populates="coc_entries")
+
+
+class TimeEntry(Base):
+    __tablename__ = "time_entries"
+
+    id               = Column(Integer, primary_key=True)
+    investigator_id  = Column(Integer, ForeignKey("investigators.id"), nullable=False)
+    case_id          = Column(Integer, ForeignKey("cases.id"), nullable=False)
+    clock_in         = Column(DateTime, nullable=False, default=datetime.utcnow)
+    clock_out        = Column(DateTime, nullable=True)
+    duration_minutes = Column(Integer, nullable=True)   # set when clocked out
+    activity         = Column(String(500), default="")
+    entry_type       = Column(String(20), default="clockinout")  # clockinout | manual
+
+    investigator = relationship("Investigator", back_populates="time_entries")
+    case         = relationship("Case", back_populates="time_entries")
 
 
 class HashVerifyBatch(Base):
